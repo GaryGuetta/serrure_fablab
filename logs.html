@@ -60,20 +60,20 @@
     <script type="module">
         import { createClient } from "https://esm.sh/@supabase/supabase-js"
 
-        // ⚠️ Même URL et clé que index.html — même projet Supabase
         const SUPABASE_URL = "https://fjksprfocmyqebjfxftf.supabase.co"
         const SUPABASE_KEY = "sb_publishable_A3J91eJqawcbb2s6a-8vRQ_9bOFqaE_"
         const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-        // Protection : redirige si non connecté
-        if (localStorage.getItem("logged") !== "true") {
+        // Protection : vérifie la session Supabase (JWT), pas localStorage
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
             window.location.href = "index.html"
         }
 
-        // Déconnexion
-        document.getElementById("btn-logout").addEventListener("click", (e) => {
+        // Déconnexion propre via Supabase Auth (invalide le JWT côté serveur)
+        document.getElementById("btn-logout").addEventListener("click", async (e) => {
             e.preventDefault()
-            localStorage.removeItem("logged")
+            await supabase.auth.signOut()
             window.location.href = "index.html"
         })
 
@@ -84,10 +84,8 @@
             const currentMonth = now.getMonth()
             const currentYear = now.getFullYear()
 
-            // Visites du jour
             const dayCount = data.filter(u => u.date === todayStr).length
 
-            // Visites de la semaine (7 derniers jours)
             const weekAgo = new Date()
             weekAgo.setDate(weekAgo.getDate() - 7)
             const weekCount = data.filter(u => {
@@ -95,7 +93,6 @@
                 return new Date(u.date) >= weekAgo
             }).length
 
-            // Visites du mois courant
             const monthCount = data.filter(u => {
                 if (!u.date) return false
                 const d = new Date(u.date)
@@ -107,7 +104,7 @@
             document.getElementById("month-count").innerText = monthCount
         }
 
-        // Chargement des logs depuis la table "users"
+        // Chargement des logs — fonctionne grâce au JWT de session + RLS policy
         async function loadUsers() {
             const container = document.getElementById("logs-container")
 
@@ -134,11 +131,13 @@
             data.forEach(user => {
                 const row = document.createElement("div")
                 row.className = "log-row"
+                // Échappement XSS basique
+                const safe = (v) => (v || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")
                 row.innerHTML = `
-                    <span class="prenom">${user.prenom || "-"}</span>
-                    <span class="nom">${user.nom || "-"}</span>
-                    <span class="date">${user.date || "-"}</span>
-                    <span class="heure">${user.heure || "-"}</span>
+                    <span class="prenom">${safe(user.prenom)}</span>
+                    <span class="nom">${safe(user.nom)}</span>
+                    <span class="date">${safe(user.date)}</span>
+                    <span class="heure">${safe(user.heure)}</span>
                 `
                 container.appendChild(row)
             })
@@ -146,17 +145,16 @@
 
         loadUsers()
 
-        // Ajout d'une personne dans la table "users"
+        // Ajout d'une personne
         document.getElementById("add-user-form").addEventListener("submit", async (e) => {
             e.preventDefault()
             const msg = document.getElementById("add-message")
             const prenom = document.getElementById("prenom-input").value.trim()
             const nom = document.getElementById("nom-input").value.trim()
 
-            // Date et heure actuelles générées côté client
             const now = new Date()
             const date = now.toISOString().split("T")[0]
-            const heure = now.toTimeString().split(" ")[0].substring(0, 5) // HH:MM
+            const heure = now.toTimeString().split(" ")[0].substring(0, 5)
 
             const { error } = await supabase
                 .from("users")

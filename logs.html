@@ -64,16 +64,16 @@
         const SUPABASE_KEY = "sb_publishable_A3J91eJqawcbb2s6a-8vRQ_9bOFqaE_"
         const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-        // Protection : vérifie la session Supabase (JWT), pas localStorage
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
+        // Protection : vérifie sessionStorage
+        if (sessionStorage.getItem("admin_logged") !== "true") {
             window.location.href = "index.html"
         }
 
-        // Déconnexion propre via Supabase Auth (invalide le JWT côté serveur)
-        document.getElementById("btn-logout").addEventListener("click", async (e) => {
+        // Déconnexion
+        document.getElementById("btn-logout").addEventListener("click", (e) => {
             e.preventDefault()
-            await supabase.auth.signOut()
+            sessionStorage.removeItem("admin_logged")
+            sessionStorage.removeItem("admin_email")
             window.location.href = "index.html"
         })
 
@@ -104,7 +104,7 @@
             document.getElementById("month-count").innerText = monthCount
         }
 
-        // Chargement des logs — fonctionne grâce au JWT de session + RLS policy
+        // Chargement des logs
         async function loadUsers() {
             const container = document.getElementById("logs-container")
 
@@ -131,7 +131,6 @@
             data.forEach(user => {
                 const row = document.createElement("div")
                 row.className = "log-row"
-                // Échappement XSS basique
                 const safe = (v) => (v || "-").replace(/</g, "&lt;").replace(/>/g, "&gt;")
                 row.innerHTML = `
                     <span class="prenom">${safe(user.prenom)}</span>

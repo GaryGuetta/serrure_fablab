@@ -25,9 +25,8 @@
         const SUPABASE_KEY = "sb_publishable_A3J91eJqawcbb2s6a-8vRQ_9bOFqaE_"
         const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-        // Vérifie si une session existe déjà → redirection directe
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
+        // Déjà connecté ?
+        if (sessionStorage.getItem("admin_logged") === "true") {
             window.location.href = "logs.html"
         }
 
@@ -43,14 +42,16 @@
             errorMsg.innerText = ""
 
             try {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email,
-                    password
+                const { data, error } = await supabase.rpc("verify_admin", {
+                    p_mail: email,
+                    p_mdp: password
                 })
 
-                if (error || !data.session) {
+                if (error || !data || data.length === 0) {
                     errorMsg.innerText = "Identifiants incorrects"
                 } else {
+                    sessionStorage.setItem("admin_logged", "true")
+                    sessionStorage.setItem("admin_email", email)
                     window.location.href = "logs.html"
                 }
             } catch (err) {

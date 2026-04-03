@@ -4,18 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | SPI Team CESI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
     <div class="login-card">
-        <h2>CESI Admin</h2>
-        <h3>Entrez vos identifiants</h3>
+
+        <!-- Brand -->
+        <div class="card-brand">
+            <div class="card-brand-label">SPI Team</div>
+            <div class="card-brand-title">CESI<span> / ADMIN</span></div>
+            <div class="card-subtitle">Accès sécurisé</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Form -->
         <form id="loginForm" class="login-form">
-            <input id="username" type="email" placeholder="Email" required>
-            <input id="password" type="password" placeholder="Mot de passe" required>
-            <button type="submit" id="submitBtn">CONNEXION</button>
+
+            <div class="field-wrap">
+                <label class="field-label" for="username">Email</label>
+                <input id="username" type="email" placeholder="adresse@cesi.fr" required>
+                <i class="fas fa-envelope field-icon"></i>
+            </div>
+
+            <div class="field-wrap">
+                <label class="field-label" for="password">Mot de passe</label>
+                <input id="password" type="password" placeholder="••••••••" required>
+                <i class="fas fa-lock field-icon"></i>
+            </div>
+
+            <button type="submit" id="submitBtn">
+                <span id="btn-text">CONNEXION</span>
+                <i class="fas fa-arrow-right" id="btn-icon"></i>
+            </button>
+
         </form>
-        <p id="error-msg" style="color:#ff4444; margin-top:12px; font-size:0.9rem; min-height:1.2em;"></p>
+
+        <p id="error-msg"></p>
+
+        <div class="card-footer">Accès réservé aux administrateurs</div>
+
     </div>
 
     <script type="module">
@@ -33,11 +63,14 @@
         document.getElementById("loginForm").addEventListener("submit", async (e) => {
             e.preventDefault()
             const btn = document.getElementById("submitBtn")
+            const btnText = document.getElementById("btn-text")
+            const btnIcon = document.getElementById("btn-icon")
             const errorMsg = document.getElementById("error-msg")
             const email = document.getElementById("username").value.trim()
             const password = document.getElementById("password").value.trim()
 
-            btn.innerText = "Vérification..."
+            btnText.innerText = "Vérification…"
+            btnIcon.className = "fas fa-spinner fa-spin"
             btn.disabled = true
             errorMsg.innerText = ""
 
@@ -48,18 +81,22 @@
                 })
 
                 if (error || !data || data.length === 0) {
-                    errorMsg.innerText = "Identifiants incorrects"
+                    errorMsg.innerText = "✗  Identifiants incorrects"
                 } else {
+                    btnText.innerText = "Accès accordé"
+                    btnIcon.className = "fas fa-check"
                     sessionStorage.setItem("admin_logged", "true")
                     sessionStorage.setItem("admin_email", email)
-                    window.location.href = "logs.html"
+                    setTimeout(() => window.location.href = "logs.html", 600)
+                    return
                 }
             } catch (err) {
-                errorMsg.innerText = "Erreur de connexion au serveur"
-            } finally {
-                btn.innerText = "CONNEXION"
-                btn.disabled = false
+                errorMsg.innerText = "✗  Erreur de connexion au serveur"
             }
+
+            btnText.innerText = "CONNEXION"
+            btnIcon.className = "fas fa-arrow-right"
+            btn.disabled = false
         })
     </script>
 </body>

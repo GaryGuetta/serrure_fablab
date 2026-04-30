@@ -1,0 +1,273 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
+:root {
+    --gold: #c9a200;
+    --gold-dim: rgba(180, 140, 0, 0.1);
+    --gold-hover: #b38a00;
+    --bg: #f5f3ee;
+    --surface: #ffffff;
+    --surface2: #ede9e0;
+    --border: rgba(180, 140, 0, 0.25);
+    --border-input: #ddd;
+    --text: #1a1a1a;
+    --muted: #999;
+    --danger: #e03434;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+}
+
+body {
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    overflow: hidden;
+}
+
+/* Animated grid background */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(180,140,0,0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(180,140,0,0.07) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+    animation: gridDrift 20s linear infinite;
+}
+
+/* Scanline overlay */
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.015) 2px,
+        rgba(0,0,0,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes gridDrift {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(40px); }
+}
+
+/* LOGIN CARD */
+.login-card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 44px 36px 36px;
+    box-shadow: 0 4px 40px rgba(0,0,0,0.08);
+    animation: cardIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Top accent line */
+.login-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 10%; right: 10%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    border-radius: 2px;
+}
+
+/* BRAND */
+.card-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 32px;
+    animation: fadeUp 0.5s 0.1s ease both;
+}
+
+.card-brand-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.card-brand-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 3px;
+}
+
+.card-brand-title span {
+    color: var(--text);
+}
+
+.card-subtitle {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+}
+
+/* DIVIDER */
+.divider {
+    width: 40px;
+    height: 1px;
+    background: var(--border);
+    margin: 0 auto 28px;
+    animation: fadeUp 0.5s 0.15s ease both;
+}
+
+/* FORM */
+.login-form {
+    display: grid;
+    gap: 14px;
+    animation: fadeUp 0.5s 0.2s ease both;
+}
+
+.field-wrap {
+    position: relative;
+}
+
+.field-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.field-icon {
+    position: absolute;
+    left: 13px;
+    bottom: 11px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    pointer-events: none;
+    transition: color 0.2s;
+}
+
+.login-form input {
+    width: 100%;
+    height: 44px;
+    background: #faf9f6;
+    border: 1px solid var(--border-input);
+    border-radius: 10px;
+    padding: 0 13px 0 36px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.login-form input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px var(--gold-dim);
+    outline: none;
+}
+
+.login-form input:focus + .field-icon {
+    color: var(--gold);
+}
+
+.login-form input::placeholder { color: #bbb; }
+
+/* SUBMIT BUTTON */
+.login-form button[type="submit"] {
+    width: 100%;
+    height: 44px;
+    margin-top: 4px;
+    background: var(--gold);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.login-form button[type="submit"]:hover {
+    background: var(--gold-hover);
+    box-shadow: 0 4px 20px rgba(180, 140, 0, 0.25);
+    transform: translateY(-1px);
+}
+
+.login-form button[type="submit"]:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.login-form button[type="submit"]:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ERROR MESSAGE */
+#error-msg {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    color: var(--danger);
+    text-align: center;
+    margin-top: 10px;
+    min-height: 1.2em;
+    animation: fadeUp 0.3s ease both;
+}
+
+/* FOOTER */
+.card-footer {
+    margin-top: 24px;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    animation: fadeUp 0.5s 0.3s ease both;
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 440px) {
+    .login-card {
+        padding: 36px 24px 28px;
+    }
+}

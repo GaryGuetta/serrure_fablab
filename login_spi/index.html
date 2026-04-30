@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | SPI Team CESI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div class="login-card">
+
+        <!-- Brand -->
+        <div class="card-brand">
+            <div class="card-brand-label">SPI Team</div>
+            <div class="card-brand-title">CESI<span> / ADMIN</span></div>
+            <div class="card-subtitle">Accès sécurisé</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Form -->
+        <form id="loginForm" class="login-form">
+
+            <div class="field-wrap">
+                <label class="field-label" for="username">Email</label>
+                <input id="username" type="email" placeholder="adresse@cesi.fr" required>
+                <i class="fas fa-envelope field-icon"></i>
+            </div>
+
+            <div class="field-wrap">
+                <label class="field-label" for="password">Mot de passe</label>
+                <input id="password" type="password" placeholder="••••••••" required>
+                <i class="fas fa-lock field-icon"></i>
+            </div>
+
+            <button type="submit" id="submitBtn">
+                <span id="btn-text">CONNEXION</span>
+                <i class="fas fa-arrow-right" id="btn-icon"></i>
+            </button>
+
+        </form>
+
+        <p id="error-msg"></p>
+
+        <div class="card-footer">Accès réservé aux administrateurs</div>
+
+    </div>
+
+    <script type="module">
+        import { createClient } from "https://esm.sh/@supabase/supabase-js"
+
+        const SUPABASE_URL = "https://fjksprfocmyqebjfxftf.supabase.co"
+        const SUPABASE_KEY = "sb_publishable_A3J91eJqawcbb2s6a-8vRQ_9bOFqaE_"
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+        // Déjà connecté ?
+        if (sessionStorage.getItem("admin_logged") === "true") {
+            window.location.href = "logs.html"
+        }
+
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault()
+            const btn = document.getElementById("submitBtn")
+            const btnText = document.getElementById("btn-text")
+            const btnIcon = document.getElementById("btn-icon")
+            const errorMsg = document.getElementById("error-msg")
+            const email = document.getElementById("username").value.trim()
+            const password = document.getElementById("password").value.trim()
+
+            btnText.innerText = "Vérification…"
+            btnIcon.className = "fas fa-spinner fa-spin"
+            btn.disabled = true
+            errorMsg.innerText = ""
+
+            try {
+                const { data, error } = await supabase.rpc("verify_admin", {
+                    p_mail: email,
+                    p_mdp: password
+                })
+
+                if (error || !data || data.length === 0) {
+                    errorMsg.innerText = "✗  Identifiants incorrects"
+                } else {
+                    btnText.innerText = "Accès accordé"
+                    btnIcon.className = "fas fa-check"
+                    sessionStorage.setItem("admin_logged", "true")
+                    sessionStorage.setItem("admin_email", email)
+                    setTimeout(() => window.location.href = "logs.html", 600)
+                    return
+                }
+            } catch (err) {
+                errorMsg.innerText = "✗  Erreur de connexion au serveur"
+            }
+
+            btnText.innerText = "CONNEXION"
+            btnIcon.className = "fas fa-arrow-right"
+            btn.disabled = false
+        })
+    </script>
+</body>
+</html>

@@ -37,40 +37,10 @@
                 <span id="btn-text">CONNEXION</span>
                 <i class="fas fa-arrow-right" id="btn-icon"></i>
             </button>
-            
-            <a href="#" id="forgotPasswordLink" class="forgot-link">Mot de passe oublié ?</a>
         </form>
 
         <p id="error-msg"></p>
         <div class="card-footer">Accès réservé aux administrateurs</div>
-    </div>
-
-    <!-- Fenêtre Modale Mot de passe oublié -->
-    <div id="forgotModal" class="modal-overlay">
-        <div class="login-card modal-content">
-            <div class="card-brand">
-                <div class="card-brand-label">Réinitialisation</div>
-                <div class="card-brand-title">MDP<span> / ADMIN</span></div>
-                <div class="card-subtitle">Modifier vos identifiants</div>
-            </div>
-            <div class="divider"></div>
-            
-            <form id="forgotForm" class="login-form">
-                <div class="field-wrap">
-                    <label class="field-label">Email de l'administrateur</label>
-                    <input id="forgotEmail" type="email" placeholder="adresse@cesi.fr" required>
-                    <i class="fas fa-envelope field-icon"></i>
-                </div>
-                <div class="field-wrap">
-                    <label class="field-label">Nouveau mot de passe</label>
-                    <input id="newPassword" type="password" placeholder="••••••••" required>
-                    <i class="fas fa-lock field-icon"></i>
-                </div>
-                <button type="submit" id="forgotSubmitBtn">CHANGER LE MOT DE PASSE</button>
-                <button type="button" id="closeModal" class="btn-secondary">ANNULER</button>
-            </form>
-            <p id="forgot-error-msg"></p>
-        </div>
     </div>
 
     <script type="module">
@@ -124,58 +94,6 @@
             btnIcon.className = "fas fa-arrow-right"
             btn.disabled = false
         })
-
-        // --- GESTION MOT DE PASSE OUBLIÉ (MODALE) ---
-        const forgotLink = document.getElementById("forgotPasswordLink");
-        const forgotModal = document.getElementById("forgotModal");
-        const closeModal = document.getElementById("closeModal");
-        const forgotForm = document.getElementById("forgotForm");
-
-        forgotLink.onclick = (e) => { e.preventDefault(); forgotModal.classList.add("active"); };
-        closeModal.onclick = () => { forgotModal.classList.remove("active"); };
-
-        forgotForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const email = document.getElementById("forgotEmail").value.trim();
-            const newMdp = document.getElementById("newPassword").value.trim();
-            const errorMsg = document.getElementById("forgot-error-msg");
-            const btn = document.getElementById("forgotSubmitBtn");
-
-            btn.disabled = true;
-            btn.innerText = "Vérification...";
-            errorMsg.innerText = "";
-
-            try {
-                // On vérifie d'abord si l'email existe et on met à jour
-                // Note : On utilise la table 'admins' (à adapter selon votre base)
-                const { data, error } = await supabase
-                    .from('admins') 
-                    .update({ mdp: newMdp })
-                    .eq('mail', email)
-                    .select();
-
-                if (error) throw error;
-
-                if (data && data.length > 0) {
-                    errorMsg.style.color = "#27ae60";
-                    errorMsg.innerText = "✓ Mot de passe mis à jour !";
-                    setTimeout(() => {
-                        forgotModal.classList.remove("active");
-                        forgotForm.reset();
-                        errorMsg.innerText = "";
-                    }, 2000);
-                } else {
-                    errorMsg.style.color = "var(--danger)";
-                    errorMsg.innerText = "✗ Cet email n'existe pas dans la base.";
-                }
-            } catch (err) {
-                errorMsg.style.color = "var(--danger)";
-                errorMsg.innerText = "✗ Erreur lors de la modification.";
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "CHANGER LE MOT DE PASSE";
-            }
-        });
     </script>
 </body>
 </html>

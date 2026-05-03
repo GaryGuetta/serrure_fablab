@@ -14,7 +14,6 @@
 
 <div class="app-wrapper">
 
-    <!-- HEADER -->
     <header>
         <div class="brand">
             <div class="brand-label">SPI Team</div>
@@ -26,7 +25,6 @@
         </div>
     </header>
 
-    <!-- STATS -->
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-icon"><i class="fas fa-circle-dot"></i> AUJOURD'HUI</div>
@@ -45,10 +43,9 @@
         </div>
     </div>
 
-    <!-- TABLE PANEL -->
     <div class="panel">
         <div class="panel-header">
-            <span class="panel-title"><i class="fas fa-table-list" style="margin-right:8px;font-size:.7rem;"></i>Personnes enregistrées</span>
+            <span class="panel-title"><i class="fas fa-table-list" style="margin-right:8px;font-size:.7rem;"></i>Historique</span>
             <button class="btn-excel" id="btn-excel">
                 <i class="fas fa-file-excel"></i> EXPORTER EXCEL
             </button>
@@ -72,11 +69,10 @@
         </div>
     </div>
 
-    <!-- FORM PANEL -->
     <div class="form-panel">
         <div class="form-panel-header">
             <i class="fas fa-user-plus"></i>
-            <span class="form-panel-title">Ajouter une entrée</span>
+            <span class="form-panel-title">Ajouter une personne</span>
         </div>
         <div class="form-body">
             <form id="add-user-form">
@@ -93,9 +89,16 @@
                         <div class="field-label">Nom</div>
                         <input type="text" id="nom-input" class="field-input" placeholder="Nom" required>
                     </div>
-                    <button type="submit" class="btn-add" title="Ajouter">
-                        <i class="fas fa-plus"></i>
-                    </button>
+                    <div style="display: flex; gap: 8px; align-items: flex-end;">
+                        <button type="submit" class="btn-add" title="Ajouter manuellement">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        
+                        <input type="file" id="excel-upload" accept=".xlsx, .xls" style="display:none;">
+                        <button type="button" class="btn-add" id="btn-import-excel" title="Importer fichier Excel" style="background: var(--success); color: white;">
+                            <i class="fas fa-file-import"></i>
+                        </button>
+                    </div>
                 </div>
             </form>
             <div class="form-message" id="add-message"></div>
@@ -104,7 +107,6 @@
 
 </div>
 
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -179,21 +181,20 @@
             return
         }
 
-        if (!data || data.length === 0) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-database"></i>AUCUN ENREGISTREMENT</div>`
-            updateStats([])
-            return
-        }
-
         allData = data
         updateStats(data)
         container.innerHTML = ""
+
+        if (!data || data.length === 0) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-database"></i>AUCUN ENREGISTREMENT</div>`
+            return
+        }
 
         data.forEach((user, i) => {
             const row = document.createElement("div")
             row.className = "log-row"
             row.style.animationDelay = `${i * 30}ms`
-            const safe = (v) => (v || "—").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            const safe = (v) => (String(v || "—")).replace(/</g, "&lt;").replace(/>/g, "&gt;")
             row.innerHTML = `
                 <span class="uid">${safe(user.uid)}</span>
                 <span class="prenom">${safe(user.prenom)}</span>
@@ -209,7 +210,6 @@
             container.appendChild(row)
         })
 
-        // Delete handlers
         container.querySelectorAll('.btn-delete').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = btn.getAttribute('data-id')
@@ -227,17 +227,70 @@
 
     loadUsers()
 
+    // --- LOGIQUE IMPORT EXCEL ---
+    const excelUpload = document.getElementById("excel-upload");
+    const btnImport = document.getElementById("btn-import-excel");
+
+    btnImport.addEventListener("click", () => excelUpload.click());
+
+    excelUpload.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!window.XLSX) {
+            await new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+                s.onload = res; s.onerror = rej;
+                document.head.appendChild(s);
+            });
+        }
+
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                if (jsonData.length === 0) {
+                    showToast("Le fichier est vide", "error");
+                    return;
+                }
+
+                const records = jsonData.map(row => ({
+                    uid: row.UID || row.uid || null,
+                    prenom: row.Prénom || row.prenom || row.Prenom || "",
+                    nom: row.Nom || row.nom || ""
+                }));
+
+                const { error } = await supabase.from("users").insert(records);
+
+                if (error) {
+                    showToast(error.message, 'error');
+                } else {
+                    showToast(`${records.length} personnes importées !`);
+                    loadUsers();
+                }
+            } catch (err) {
+                showToast("Erreur lors de l'importation", "error");
+            }
+            excelUpload.value = "";
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    // --- FORMULAIRE MANUEL ---
     document.getElementById("add-user-form").addEventListener("submit", async (e) => {
         e.preventDefault()
         const uid = document.getElementById("uid-input").value.trim()
         const prenom = document.getElementById("prenom-input").value.trim()
         const nom = document.getElementById("nom-input").value.trim()
         const record = { prenom, nom }
-        
         if (uid) record.uid = uid
 
         const { error } = await supabase.from("users").insert([record])
-
         if (error) {
             showToast(error.message, 'error')
         } else {
@@ -247,6 +300,7 @@
         }
     })
 
+    // --- LOGIQUE EXPORT EXCEL ---
     document.getElementById("btn-excel").addEventListener("click", async () => {
         if (!allData.length) { showToast('Aucune donnée à exporter', 'error'); return; }
 

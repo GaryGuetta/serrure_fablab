@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+#
+#  supabaseV1.py
+#  
+#  Copyright 2026 paull <paull@CITRONNELLE>
+#  
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  You should have received a copy of the GNU General Public License
+#  along with this program; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+#  MA 02110-1301, USA.
+#  
+#  
+import RPi.GPIO as GPIO
+from mfrc522 import SimpleMFRC522
+import requests
+import time
+
+GPIO.setwarnings(False)
+
+RELAY = 17
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(RELAY, GPIO.OUT)
+GPIO.output(RELAY, GPIO.LOW)
+
+reader = SimpleMFRC522()
+
+# CONFIG SUPABASE
+SUPABASE_URL = "https://fjksprfocmyqebjfxftf.supabase.co/rest/v1/users"
+API_KEY = "sb_publishable_A3J91eJqawcbb2s6a-8vRQ_9bOFqaE_"
+
+headers = {
+    "apikey": API_KEY,
+    "Authorization": f"Bearer {API_KEY}"
+}
+
+def check_access(uid):
+    try:
+        url = f"{SUPABASE_URL}?uid=eq.{uid}"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            data = response.json()
+
+            if len(data) > 0:
+                return True
+
+        return False
+
+    except Exception as e:
+        print("Erreur reseau:", e)
+        return False
+
+print("Systeme RFID connecte pret")
+
+try:
+    while True:
+        uid, text = reader.read()
+        uid = int(uid)  # important pour correspondre
+
+        print("UID detecte:", uid)
+
+        if check_access(uid):
+            print("ACCES AUTORISE")
+
+            GPIO.output(RELAY, GPIO.HIGH)
+            time.sleep(3)
+            GPIO.output(RELAY, GPIO.LOW)
+
+        else:
+            print("ACCES REFUSE")
+
+        time.sleep(1)
+
+except KeyboardInterrupt:
+    GPIO.cleanup()

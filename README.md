@@ -7,7 +7,7 @@ Il comprend également le développement de la partie logicielle du microcontrô
 
 - 🔐 **Page de Connexion :** Interface moderne et responsive pour l'authentification des membres.
 - 📊 **Dashboard d'Informations :** Affichage en temps réel du nombre d'ouverture de la porte du Fablab.
-- 📟 ** Raspberry :** Code utilisé pour le système, sans et avec l'tuilisation du serveur en ligne
+- 📟 **Raspberry :** Code utilisé pour le système, sans et avec l'tuilisation du serveur en ligne
 - 📜 **Journal des Logs :** Historique chronologique des badgeages.
 
 ## 📂 Structure du projet

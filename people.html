@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personnes | SPI Team CESI</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Fichiers CSS séparés -->
+    <link rel="stylesheet" href="css/logs.css">
+    <link rel="stylesheet" href="css/people.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+
+    <header>
+        <div class="brand">
+            <div class="brand-label">SPI Team</div>
+            <div class="brand-title">CESI<span> / PERSONNES</span></div>
+        </div>
+        <div class="top-right">
+            <nav class="nav-tabs">
+                <a href="logs.html" class="nav-tab"><i class="fas fa-list-ul" style="margin-right:5px;"></i>LOGS</a>
+                <a href="people.html" class="nav-tab active"><i class="fas fa-users" style="margin-right:5px;"></i>PERSONNES</a>
+            </nav>
+            <span class="live-dot">EN LIGNE</span>
+            <a href="#" class="logout-btn" id="btn-logout"><i class="fas fa-sign-out-alt"></i> QUITTER</a>
+        </div>
+    </header>
+
+    <!-- Statistiques -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-id-badge"></i> BADGES</div>
+            <div class="stat-number" id="badge-count">—</div>
+            <div class="stat-label">badges enregistrés</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-unlock"></i> LIBRES</div>
+            <div class="stat-number" id="nobadge-count">—</div>
+            <div class="stat-label">sans identité liée</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon"><i class="fas fa-users"></i> PERSONNES</div>
+            <div class="stat-number" id="total-count">—</div>
+            <div class="stat-label">personnes enregistrées</div>
+        </div>
+    </div>
+
+    <!-- Panneau de la Table -->
+    <div class="panel">
+        <div class="panel-header">
+            <span class="panel-title"><i class="fas fa-users" style="margin-right:8px;font-size:.7rem;"></i>Liste des badges et porteurs</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <div class="search-wrap">
+                    <i class="fas fa-magnifying-glass search-icon"></i>
+                    <input type="text" class="search-input" id="search-input" placeholder="Rechercher un badge ou nom…">
+                </div>
+                <button class="btn-excel" id="btn-excel-export">
+                    <i class="fas fa-file-excel"></i> EXPORTER
+                </button>
+            </div>
+        </div>
+        <div class="table-wrap">
+            <div class="log-table">
+                <div class="header-row">
+                    <span class="uid">UID / Badge</span>
+                    <span class="prenom">Prénom</span>
+                    <span class="nom">Nom</span>
+                    <span></span>
+                </div>
+                <div id="people-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panneau d'ajout (UID obligatoire) -->
+    <div class="form-panel">
+        <div class="form-panel-header">
+            <i class="fas fa-user-plus"></i>
+            <span class="form-panel-title">Ajouter un nouveau badge</span>
+        </div>
+        <div class="form-body">
+            <form id="add-person-form">
+                <div class="input-row">
+                    <div class="field-wrap">
+                        <div class="field-label">UID (Obligatoire)</div>
+                        <input type="text" id="uid-input" class="field-input" placeholder="ex: 042A…" required>
+                    </div>
+                    <div class="field-wrap">
+                        <div class="field-label">Prénom (Optionnel)</div>
+                        <input type="text" id="prenom-input" class="field-input" placeholder="Prénom">
+                    </div>
+                    <div class="field-wrap">
+                        <div class="field-label">Nom (Optionnel)</div>
+                        <input type="text" id="nom-input" class="field-input" placeholder="Nom">
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:flex-end;">
+                        <button type="submit" class="btn-add" title="Ajouter manuellement">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <input type="file" id="excel-upload" accept=".xlsx,.xls" style="display:none;">
+                        <button type="button" class="btn-add btn-import" id="btn-import-excel" title="Importer depuis Excel">
+                            <i class="fas fa-file-import"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+            <div class="form-message" id="add-message"></div>
+        </div>
+    </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js"
+
+    const SUPABASE_URL = "https://fjksprfocmyqebjfxftf.supabase.co"
+    const SUPABASE_KEY = "sb_publishable_A3J91eJqawcbb2s6a-8vRQ_9bOFqaE_"
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+
+    // Vérification session
+    if (sessionStorage.getItem("admin_logged") !== "true") {
+        window.location.href = "index.html"
+    }
+
+    const container = document.getElementById("people-container")
+    const searchInput = document.getElementById("search-input")
+    let allPeople = []
+
+    // --- UTILS ---
+    function showToast(msg, type = 'success') {
+        const t = document.getElementById('toast')
+        t.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg
+        t.className = `toast ${type} show`
+        setTimeout(() => t.classList.remove('show'), 3000)
+    }
+
+    function animateCount(el, target) {
+        const start = parseInt(el.textContent) || 0
+        if (start === target) return
+        const dur = 600, step = 16
+        const diff = target - start
+        let current = start
+        const interval = setInterval(() => {
+            current += Math.ceil(diff / (dur / step))
+            if ((diff > 0 && current >= target) || (diff < 0 && current <= target)) {
+                current = target; clearInterval(interval)
+            }
+            el.textContent = current
+        }, step)
+    }
+
+    function safe(v) {
+        return String(v || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    }
+
+    // --- RENDER ---
+    function renderRows(data) {
+        container.innerHTML = ""
+        if (!data || data.length === 0) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i>AUCUNE DONNÉE</div>`
+            return
+        }
+        data.forEach((p, i) => {
+            const row = document.createElement("div")
+            row.className = "log-row"
+            row.style.animationDelay = `${i * 25}ms`
+            const hasUid = p.uid && p.uid.trim() !== ""
+            row.innerHTML = `
+                <span class="uid">
+                    <span class="uid-chip ${hasUid ? '' : 'no-uid'}">
+                        ${hasUid ? `<i class="fas fa-id-badge" style="font-size:.55rem;"></i>${safe(p.uid)}` : '— aucun badge'}
+                    </span>
+                </span>
+                <span class="prenom">${p.prenom ? safe(p.prenom) : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigné</span>'}</span>
+                <span class="nom">${p.nom ? safe(p.nom) : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigné</span>'}</span>
+                <span style="display:flex;align-items:center;">
+                    <button class="btn-delete" title="Supprimer" data-id="${p.identifiant}">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                </span>
+            `
+            container.appendChild(row)
+        })
+
+        container.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const identifiant = btn.getAttribute('data-id')
+                if (!confirm('Supprimer cette entrée ?')) return
+                const { error } = await supabase.from('users').delete().eq('identifiant', identifiant)
+                if (error) showToast(error.message, 'error')
+                else { showToast('Supprimé avec succès'); loadPeople() }
+            })
+        })
+    }
+
+    // --- CHARGEMENT ---
+    async function loadPeople() {
+        container.innerHTML = Array(4).fill(0).map(() => `
+            <div class="skeleton-row">
+                <div class="skeleton-bar" style="width:80%"></div>
+                <div class="skeleton-bar" style="width:60%"></div>
+                <div class="skeleton-bar" style="width:60%"></div>
+                <div class="skeleton-bar" style="width:20px"></div>
+            </div>`).join('')
+
+        const { data, error } = await supabase
+            .from("users")
+            .select("identifiant, uid, prenom, nom")
+            .order("nom", { ascending: true })
+
+        if (error) {
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-triangle-exclamation"></i>ERREUR : ${error.message}</div>`
+            return
+        }
+
+        allPeople = data || []
+
+        // Statistiques demandées
+        const totalBadges = allPeople.filter(p => p.uid && p.uid.trim() !== "").length;
+        const totalPeople = allPeople.filter(p => (p.prenom && p.prenom.trim() !== "") || (p.nom && p.nom.trim() !== "")).length;
+        const badgesLibres = allPeople.filter(p => (!p.prenom || p.prenom.trim() === "") && (!p.nom || p.nom.trim() === "")).length;
+
+        animateCount(document.getElementById("badge-count"), totalBadges)
+        animateCount(document.getElementById("nobadge-count"), badgesLibres)
+        animateCount(document.getElementById("total-count"), totalPeople)
+
+        renderRows(allPeople)
+    }
+
+    // --- RECHERCHE ---
+    searchInput.addEventListener("input", () => {
+        const q = searchInput.value.trim().toLowerCase()
+        if (!q) { renderRows(allPeople); return }
+        renderRows(allPeople.filter(p =>
+            (p.prenom || "").toLowerCase().includes(q) ||
+            (p.nom || "").toLowerCase().includes(q) ||
+            (p.uid || "").toLowerCase().includes(q)
+        ))
+    })
+
+    // --- FORMULAIRE D'AJOUT (UID REQUIS) ---
+    document.getElementById("add-person-form").addEventListener("submit", async (e) => {
+        e.preventDefault()
+        const uid = document.getElementById("uid-input").value.trim()
+        const prenom = document.getElementById("prenom-input").value.trim()
+        const nom = document.getElementById("nom-input").value.trim()
+
+        // Vérifier si l'UID existe déjà
+        const { data: existing } = await supabase
+            .from("users").select("uid, prenom, nom").eq("uid", uid).maybeSingle()
+        
+        if (existing) {
+            showToast(`L'UID ${uid} existe déjà !`, 'error'); return
+        }
+
+        const record = { 
+            uid, 
+            prenom: prenom || null, 
+            nom: nom || null 
+        }
+
+        const { error } = await supabase.from("users").insert([record])
+        if (error) showToast(error.message, 'error')
+        else {
+            showToast('Badge enregistré')
+            document.getElementById("add-person-form").reset()
+            loadPeople()
+        }
+    })
+
+    // --- EXCEL IMPORT ---
+    const btnImport = document.getElementById("btn-import-excel")
+    const excelUpload = document.getElementById("excel-upload")
+
+    btnImport.addEventListener("click", () => excelUpload.click())
+    excelUpload.addEventListener("change", async (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+
+        if (!window.XLSX) {
+            await new Promise((res, rej) => {
+                const s = document.createElement('script')
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+                s.onload = res; s.onerror = rej
+                document.head.appendChild(s)
+            })
+        }
+
+        const reader = new FileReader()
+        reader.onload = async (evt) => {
+            try {
+                const wb = window.XLSX.read(new Uint8Array(evt.target.result), { type: 'array' })
+                const jsonData = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+                
+                const { data: existingUsers } = await supabase.from("users").select("uid")
+                const existingUids = new Set((existingUsers || []).map(u => u.uid).filter(Boolean))
+
+                let duplicates = 0
+                const records = []
+                jsonData.forEach(row => {
+                    const rowUid = row.UID || row.uid || null
+                    if (!rowUid) return // On ignore si pas d'UID
+                    if (existingUids.has(String(rowUid))) { duplicates++; return }
+                    
+                    records.push({
+                        uid: String(rowUid),
+                        prenom: row.Prénom || row.prenom || row.Prenom || null,
+                        nom: row.Nom || row.nom || null
+                    })
+                })
+
+                if (!records.length) { showToast("Aucun nouvel UID valide trouvé", "error"); return }
+                const { error } = await supabase.from("users").insert(records)
+                if (error) throw error
+                showToast(`${records.length} badges importés`)
+                loadPeople()
+            } catch (err) { showToast(err.message, "error") }
+            excelUpload.value = ""
+        }
+        reader.readAsArrayBuffer(file)
+    })
+
+    // --- EXCEL EXPORT ---
+    document.getElementById("btn-excel-export").addEventListener("click", async () => {
+        if (!allPeople.length) { showToast('Aucune donnée', 'error'); return }
+        if (!window.XLSX) {
+            await new Promise((res, rej) => {
+                const s = document.createElement('script')
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+                s.onload = res; s.onerror = rej
+                document.head.appendChild(s)
+            })
+        }
+        const ws = window.XLSX.utils.json_to_sheet(allPeople.map(p => ({
+            UID: p.uid || '', Prénom: p.prenom || '', Nom: p.nom || ''
+        })))
+        const wb = window.XLSX.utils.book_new()
+        window.XLSX.utils.book_append_sheet(wb, ws, 'Personnes')
+        window.XLSX.writeFile(wb, `spi_personnes_${new Date().toISOString().split('T')[0]}.xlsx`)
+        showToast('Export réussi')
+    })
+
+    document.getElementById("btn-logout").addEventListener("click", (e) => {
+        e.preventDefault(); sessionStorage.clear(); window.location.href = "index.html"
+    })
+
+    loadPeople()
+</script>
+</body>
+</html>

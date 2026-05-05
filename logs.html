@@ -17,9 +17,17 @@
     <header>
         <div class="brand">
             <div class="brand-label">SPI Team</div>
-            <div class="brand-title">CESI<span> / ACCESS LOG</span></div>
+            <div class="brand-title">CESI<span> / LOGS</span></div>
         </div>
         <div class="top-right">
+            <nav style="display:flex;gap:4px;">
+                <a href="logs.html" style="font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:2px;padding:6px 13px;border-radius:6px;text-decoration:none;color:var(--gold);border:1px solid var(--border);background:var(--gold-dim);">
+                    <i class="fas fa-list-ul" style="margin-right:5px;"></i>LOGS
+                </a>
+                <a href="people.html" style="font-family:'Space Mono',monospace;font-size:0.62rem;letter-spacing:2px;padding:6px 13px;border-radius:6px;text-decoration:none;color:var(--muted);border:1px solid transparent;transition:all 0.2s;" onmouseover="this.style.color='var(--gold)';this.style.borderColor='var(--border)';this.style.background='var(--gold-dim)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='transparent';this.style.background='none'">
+                    <i class="fas fa-users" style="margin-right:5px;"></i>PERSONNES
+                </a>
+            </nav>
             <span class="live-dot">EN LIGNE</span>
             <a href="#" class="logout-btn" id="btn-logout"><i class="fas fa-sign-out-alt"></i> QUITTER</a>
         </div>
@@ -72,40 +80,7 @@
         </div>
     </div>
 
-    <div class="form-panel">
-        <div class="form-panel-header">
-            <i class="fas fa-user-plus"></i>
-            <span class="form-panel-title">Ajouter une personne</span>
-        </div>
-        <div class="form-body">
-            <form id="add-user-form">
-                <div class="input-row">
-                    <div class="field-wrap">
-                        <div class="field-label">UID</div>
-                        <input type="text" id="uid-input" class="field-input" placeholder="ex: 042A…">
-                    </div>
-                    <div class="field-wrap">
-                        <div class="field-label">Prénom</div>
-                        <input type="text" id="prenom-input" class="field-input" placeholder="Prénom" required>
-                    </div>
-                    <div class="field-wrap">
-                        <div class="field-label">Nom</div>
-                        <input type="text" id="nom-input" class="field-input" placeholder="Nom" required>
-                    </div>
-                    <div style="display: flex; gap: 8px; align-items: flex-end;">
-                        <button type="submit" class="btn-add" title="Ajouter manuellement">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                        <input type="file" id="excel-upload" accept=".xlsx, .xls" style="display:none;">
-                        <button type="button" class="btn-add btn-import" id="btn-import-excel" title="Importer fichier Excel">
-                            <i class="fas fa-file-import"></i>
-                        </button>
-                    </div>
-                </div>
-            </form>
-            <div class="form-message" id="add-message"></div>
-        </div>
-    </div>
+
 
 </div>
 
@@ -126,9 +101,6 @@
     // Elements
     const btnLogout = document.getElementById("btn-logout");
     const logsContainer = document.getElementById("logs-container");
-    const addUserForm = document.getElementById("add-user-form");
-    const excelUpload = document.getElementById("excel-upload");
-    const btnImport = document.getElementById("btn-import-excel");
     const btnExcelExport = document.getElementById("btn-excel")
     const btnUidExport = document.getElementById("btn-uid-export");
 
@@ -228,105 +200,6 @@
             })
         })
     }
-
-    // --- FORM LOGIC (WITH UID CHECK) ---
-    addUserForm.addEventListener("submit", async (e) => {
-        e.preventDefault()
-        const uid = document.getElementById("uid-input").value.trim()
-        const prenom = document.getElementById("prenom-input").value.trim()
-        const nom = document.getElementById("nom-input").value.trim()
-
-        // 1. Check if UID exists
-        if (uid) {
-            const { data: existingUser, error: checkError } = await supabase
-                .from("users")
-                .select("prenom, nom")
-                .eq("uid", uid)
-                .maybeSingle();
-
-            if (existingUser) {
-                showToast(`Ce badge est déjà lié à ${existingUser.prenom} ${existingUser.nom}`, 'error');
-                return;
-            }
-        }
-
-        // 2. Insert
-        const record = { prenom, nom }
-        if (uid) record.uid = uid
-
-        const { error } = await supabase.from("users").insert([record])
-        if (error) {
-            showToast(error.message, 'error')
-        } else {
-            showToast('Personne ajoutée avec succès')
-            addUserForm.reset()
-            loadUsers()
-        }
-    })
-
-    // --- EXCEL IMPORT (WITH UID CHECK) ---
-    btnImport.addEventListener("click", () => excelUpload.click());
-    excelUpload.addEventListener("change", async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        if (!window.XLSX) {
-            await new Promise((res, rej) => {
-                const s = document.createElement('script');
-                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-                s.onload = res; s.onerror = rej;
-                document.head.appendChild(s);
-            });
-        }
-
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-            try {
-                const data = new Uint8Array(evt.target.result);
-                const workbook = window.XLSX.read(data, { type: 'array' });
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = window.XLSX.utils.sheet_to_json(firstSheet);
-
-                if (jsonData.length === 0) {
-                    showToast("Le fichier est vide", "error");
-                    return;
-                }
-
-                // Get existing UIDs from DB to prevent duplicates
-                const { data: existingUsers } = await supabase.from("users").select("uid");
-                const existingUids = new Set(existingUsers.map(u => u.uid).filter(u => u));
-
-                const records = [];
-                let duplicates = 0;
-
-                jsonData.forEach(row => {
-                    const rowUid = row.UID || row.uid || null;
-                    if (rowUid && existingUids.has(rowUid)) {
-                        duplicates++;
-                    } else {
-                        records.push({
-                            uid: rowUid,
-                            prenom: row.Prénom || row.prenom || row.Prenom || "",
-                            nom: row.Nom || row.nom || ""
-                        });
-                    }
-                });
-
-                if (records.length === 0) {
-                    showToast("Tous les badges du fichier existent déjà", "error");
-                } else {
-                    const { error } = await supabase.from("users").insert(records);
-                    if (error) throw error;
-                    showToast(`${records.length} importés.${duplicates > 0 ? ' ('+duplicates+' doublons ignorés)' : ''}`);
-                    loadUsers();
-                }
-            } catch (err) {
-                showToast(err.message, "error");
-            }
-            excelUpload.value = "";
-        };
-        reader.readAsArrayBuffer(file);
-    });
 
     // --- UID ONLY EXPORT ---
     btnUidExport.addEventListener("click", async () => {

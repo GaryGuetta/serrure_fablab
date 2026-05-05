@@ -240,7 +240,7 @@ header {
     align-items: center;
     gap: 7px;
     background: transparent;
-    border: 1px solid rgba(26, 158, 92, 0.4);
+    border: 2px solid rgba(26, 158, 92, 0.55);
     color: var(--success);
     font-family: 'Space Mono', monospace;
     font-size: 0.65rem;
@@ -249,12 +249,13 @@ header {
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
+    font-weight: 700;
 }
 
 .btn-excel:hover {
     background: rgba(26, 158, 92, 0.08);
     border-color: var(--success);
-    box-shadow: 0 0 12px rgba(26, 158, 92, 0.15);
+    box-shadow: 0 0 14px rgba(26, 158, 92, 0.2);
 }
 
 .btn-excel i { font-size: 0.75rem; }
@@ -409,11 +410,11 @@ header {
 .btn-add {
     width: 38px;
     height: 38px;
-    background: var(--gold);
-    color: #000;
-    border: none;
+    background: transparent;
+    color: var(--gold);
+    border: 2px solid rgba(180, 140, 0, 0.55);
     border-radius: 8px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -421,15 +422,29 @@ header {
     transition: all 0.2s;
     margin-top: 20px;
     flex-shrink: 0;
+    font-weight: 700;
 }
 
 .btn-add:hover {
-    background: #e6b800;
+    background: rgba(180, 140, 0, 0.08);
+    border-color: var(--gold);
+    box-shadow: 0 0 14px rgba(180, 140, 0, 0.2);
     transform: scale(1.05);
-    box-shadow: 0 4px 16px rgba(180, 140, 0, 0.25);
 }
 
 .btn-add:active { transform: scale(0.96); }
+
+/* Import Excel button variant */
+.btn-add.btn-import {
+    color: var(--success);
+    border-color: rgba(26, 158, 92, 0.55);
+}
+
+.btn-add.btn-import:hover {
+    background: rgba(26, 158, 92, 0.08);
+    border-color: var(--success);
+    box-shadow: 0 0 14px rgba(26, 158, 92, 0.2);
+}
 
 .form-message {
     margin-top: 12px;
@@ -457,13 +472,14 @@ header {
     align-items: center;
     justify-content: center;
     background: transparent;
-    border: 1px solid rgba(224, 52, 52, 0.4);
+    border: 2px solid rgba(224, 52, 52, 0.55);
     color: var(--danger);
     width: 28px;
     height: 28px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.65rem;
+    font-size: 0.7rem;
+    font-weight: 700;
     transition: all 0.2s;
     flex-shrink: 0;
 }
@@ -471,7 +487,7 @@ header {
 .btn-delete:hover {
     background: rgba(224, 52, 52, 0.08);
     border-color: var(--danger);
-    box-shadow: 0 0 12px rgba(224, 52, 52, 0.15);
+    box-shadow: 0 0 14px rgba(224, 52, 52, 0.2);
     transform: scale(1.08);
 }
 

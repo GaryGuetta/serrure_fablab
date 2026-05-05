@@ -14,11 +14,13 @@ Il comprend également le développement de la partie logicielle du microcontrô
 
 ```text
 ├── index.html          # Page de connexion (Login)
-├── dashboard.html      # Page d'affichage des infos et logs
+├── logs.html           # Page d'affichage des logs
+├── people.html         # Page gérant l'accés au fablab
 ├── Raspberry/
-│   ├── RC522.py        # Programmation du module RC522 sans les infos du serveur en ligne
-│   └── VF.py           # Programmation complet du système, avec le serveur
+│   ├── RC522.py        # Programmation du module RC522 (Local)
+│   └── VF.py           # Programmation complète (Serveur)
 ├── css/
-│   ├── style.css       # Styles généraux et mise en page
-│   └── logs.css        # Styles spécifiques au tableau des logs
+│   ├── style.css       # Styles généraux
+│   ├── logs.css        # Styles pour le tableau des logs
+│   └── people.css      # NOUVEAU : Styles pour la gestion des membres
 └── README.md

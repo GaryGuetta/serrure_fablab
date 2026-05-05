@@ -46,9 +46,14 @@
     <div class="panel">
         <div class="panel-header">
             <span class="panel-title"><i class="fas fa-table-list" style="margin-right:8px;font-size:.7rem;"></i>Historique</span>
-            <button class="btn-excel" id="btn-excel">
-                <i class="fas fa-file-excel"></i> EXPORTER EXCEL
-            </button>
+            <div style="display:flex;gap:8px;">
+                <button class="btn-excel btn-uid-export" id="btn-uid-export">
+                    <i class="fas fa-id-badge"></i> EXPORTER UID
+                </button>
+                <button class="btn-excel" id="btn-excel">
+                    <i class="fas fa-file-excel"></i> EXPORTER EXCEL
+                </button>
+            </div>
         </div>
         <div class="table-wrap">
             <div class="log-table">
@@ -124,7 +129,8 @@
     const addUserForm = document.getElementById("add-user-form");
     const excelUpload = document.getElementById("excel-upload");
     const btnImport = document.getElementById("btn-import-excel");
-    const btnExcelExport = document.getElementById("btn-excel");
+    const btnExcelExport = document.getElementById("btn-excel")
+    const btnUidExport = document.getElementById("btn-uid-export");
 
     let allData = [];
 
@@ -321,6 +327,26 @@
         };
         reader.readAsArrayBuffer(file);
     });
+
+    // --- UID ONLY EXPORT ---
+    btnUidExport.addEventListener("click", async () => {
+        if (!allData.length) { showToast('Aucune donnée à exporter', 'error'); return; }
+        const uids = allData.filter(u => u.uid && u.uid.trim() !== '' && !u.prenom && !u.nom).map(u => u.uid)
+        if (!uids.length) { showToast('Aucun UID sans nom/prénom trouvé', 'error'); return; }
+        if (!window.XLSX) {
+            await new Promise((res, rej) => {
+                const s = document.createElement('script')
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+                s.onload = res; s.onerror = rej
+                document.head.appendChild(s)
+            })
+        }
+        const ws = window.XLSX.utils.json_to_sheet(uids.map(uid => ({ UID: uid })))
+        const wb = window.XLSX.utils.book_new()
+        window.XLSX.utils.book_append_sheet(wb, ws, 'UIDs')
+        window.XLSX.writeFile(wb, `spi_uid_${new Date().toISOString().split('T')[0]}.xlsx`)
+        showToast(`${uids.length} UIDs exportés`)
+    })
 
     // --- EXCEL EXPORT ---
     btnExcelExport.addEventListener("click", async () => {

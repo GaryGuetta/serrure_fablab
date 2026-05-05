@@ -4,17 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personnes | SPI Team CESI</title>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <link rel="stylesheet" href="css/logs.css">
     <link rel="stylesheet" href="css/people.css">
 </head>
 <body>
-
 <div class="app-wrapper">
 
     <header>
@@ -32,33 +29,31 @@
         </div>
     </header>
 
-    <!-- Statistiques -->
     <div class="stats-grid">
         <div class="stat-card">
             <div class="stat-icon"><i class="fas fa-id-badge"></i> BADGES</div>
-            <div class="stat-number" id="badge-count">—</div>
-            <div class="stat-label">badges enregistrés</div>
+            <div class="stat-number" id="badge-count">&#8212;</div>
+            <div class="stat-label">badges enregistres</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"><i class="fas fa-unlock"></i> LIBRES</div>
-            <div class="stat-number" id="nobadge-count">—</div>
-            <div class="stat-label">sans identité liée</div>
+            <div class="stat-number" id="nobadge-count">&#8212;</div>
+            <div class="stat-label">sans identite liee</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon"><i class="fas fa-users"></i> PERSONNES</div>
-            <div class="stat-number" id="total-count">—</div>
-            <div class="stat-label">personnes enregistrées</div>
+            <div class="stat-number" id="total-count">&#8212;</div>
+            <div class="stat-label">personnes enregistrees</div>
         </div>
     </div>
 
-    <!-- Panneau de la Table -->
     <div class="panel">
         <div class="panel-header">
             <span class="panel-title"><i class="fas fa-users" style="margin-right:8px;font-size:.7rem;"></i>Liste des badges et porteurs</span>
             <div style="display:flex;gap:8px;align-items:center;">
                 <div class="search-wrap">
                     <i class="fas fa-magnifying-glass search-icon"></i>
-                    <input type="text" class="search-input" id="search-input" placeholder="Rechercher un badge ou nom…">
+                    <input type="text" class="search-input" id="search-input" placeholder="Rechercher un badge ou nom...">
                 </div>
                 <button class="btn-excel" id="btn-excel-export">
                     <i class="fas fa-file-excel"></i> EXPORTER
@@ -69,7 +64,7 @@
             <div class="log-table">
                 <div class="header-row">
                     <span class="uid">UID / Badge</span>
-                    <span class="prenom">Prénom</span>
+                    <span class="prenom">Prenom</span>
                     <span class="nom">Nom</span>
                     <span></span>
                 </div>
@@ -78,7 +73,6 @@
         </div>
     </div>
 
-    <!-- Panneau d'ajout (UID obligatoire) -->
     <div class="form-panel">
         <div class="form-panel-header">
             <i class="fas fa-user-plus"></i>
@@ -89,11 +83,11 @@
                 <div class="input-row">
                     <div class="field-wrap">
                         <div class="field-label">UID (Obligatoire)</div>
-                        <input type="text" id="uid-input" class="field-input" placeholder="ex: 042A…" required>
+                        <input type="text" id="uid-input" class="field-input" placeholder="ex: 042A..." required>
                     </div>
                     <div class="field-wrap">
-                        <div class="field-label">Prénom (Optionnel)</div>
-                        <input type="text" id="prenom-input" class="field-input" placeholder="Prénom">
+                        <div class="field-label">Prenom (Optionnel)</div>
+                        <input type="text" id="prenom-input" class="field-input" placeholder="Prenom">
                     </div>
                     <div class="field-wrap">
                         <div class="field-label">Nom (Optionnel)</div>
@@ -115,310 +109,344 @@
     </div>
 
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js"
+import { createClient } from "https://esm.sh/@supabase/supabase-js"
 
-    const SUPABASE_URL = "https://fjksprfocmyqebjfxftf.supabase.co"
-    const SUPABASE_KEY = "sb_publishable_A3J91eJqawcbb2s6a-8vRQ_9bOFqaE_"
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+const SUPABASE_URL = "https://fjksprfocmyqebjfxftf.supabase.co"
+const SUPABASE_KEY = "sb_publishable_A3J91eJqawcbb2s6a-8vRQ_9bOFqaE_"
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-    // Vérification session
-    if (sessionStorage.getItem("admin_logged") !== "true") {
-        window.location.href = "index.html"
-    }
+if (sessionStorage.getItem("admin_logged") !== "true") {
+    window.location.href = "index.html"
+}
 
-    const container  = document.getElementById("people-container")
-    const searchInput = document.getElementById("search-input")
-    let allPeople = []
+const container   = document.getElementById("people-container")
+const searchInput = document.getElementById("search-input")
+let allPeople = []
 
-    // ── Normalise un UID pour une comparaison fiable ─────────────────
-    // Convertit en string, supprime espaces, met en minuscules.
-    // Cela règle les faux doublons causés par des types numériques/string
-    // ou des espaces invisibles venant d'Excel.
-    function normalizeUid(v) {
-        return String(v ?? "").trim().toLowerCase()
-    }
+// Normalise un UID : string, trim, lowercase
+function nuid(v) {
+    return String(v ?? "").trim().toLowerCase()
+}
 
-    // ── UTILS ────────────────────────────────────────────────────────
-    function showToast(msg, type = 'success') {
-        const t = document.getElementById('toast')
-        t.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg
-        t.className = `toast ${type} show`
-        setTimeout(() => t.classList.remove('show'), 3000)
-    }
+// ── TOAST ────────────────────────────────────────────────────────
+function showToast(msg, type) {
+    type = type || "success"
+    var t = document.getElementById("toast")
+    t.textContent = (type === "success" ? "\u2713 " : "\u2717 ") + msg
+    t.className = "toast " + type + " show"
+    setTimeout(function() { t.classList.remove("show") }, 3500)
+}
 
-    function animateCount(el, target) {
-        const start = parseInt(el.textContent) || 0
-        if (start === target) return
-        const dur = 600, step = 16
-        const diff = target - start
-        let current = start
-        const interval = setInterval(() => {
-            current += Math.ceil(diff / (dur / step))
-            if ((diff > 0 && current >= target) || (diff < 0 && current <= target)) {
-                current = target
-                clearInterval(interval)
-            }
-            el.textContent = current
-        }, step)
-    }
-
-    function safe(v) {
-        return String(v || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    }
-
-    // ── RENDER ───────────────────────────────────────────────────────
-    function renderRows(data) {
-        container.innerHTML = ""
-        if (!data || data.length === 0) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-user-slash"></i>AUCUNE DONNÉE</div>`
-            return
+// ── COMPTEUR ANIME ───────────────────────────────────────────────
+function animateCount(el, target) {
+    var start = parseInt(el.textContent) || 0
+    if (start === target) return
+    var dur = 600, step = 16, diff = target - start, current = start
+    var iv = setInterval(function() {
+        current += Math.ceil(diff / (dur / step))
+        if ((diff > 0 && current >= target) || (diff < 0 && current <= target)) {
+            current = target; clearInterval(iv)
         }
-        data.forEach((p, i) => {
-            const row = document.createElement("div")
-            row.className = "log-row"
-            row.style.animationDelay = `${i * 25}ms`
-            const hasUid = normalizeUid(p.uid) !== ""
-            row.innerHTML = `
-                <span class="uid">
-                    <span class="uid-chip ${hasUid ? '' : 'no-uid'}">
-                        ${hasUid
-                            ? `<i class="fas fa-id-badge" style="font-size:.55rem;"></i>${safe(p.uid)}`
-                            : '— aucun badge'}
-                    </span>
-                </span>
-                <span class="prenom">${p.prenom
-                    ? safe(p.prenom)
-                    : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigné</span>'}</span>
-                <span class="nom">${p.nom
-                    ? safe(p.nom)
-                    : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigné</span>'}</span>
-                <span style="display:flex;align-items:center;">
-                    <button class="btn-delete" title="Supprimer" data-id="${p.identifiant}">
-                        <i class="fas fa-xmark"></i>
-                    </button>
-                </span>
-            `
-            container.appendChild(row)
-        })
+        el.textContent = current
+    }, step)
+}
 
-        container.querySelectorAll('.btn-delete').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const identifiant = btn.getAttribute('data-id')
-                if (!confirm('Supprimer cette entrée ?')) return
-                const { error } = await supabase.from('users').delete().eq('identifiant', identifiant)
-                if (error) showToast(error.message, 'error')
-                else { showToast('Supprimé avec succès'); loadPeople() }
-            })
-        })
+function safe(v) {
+    return String(v || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+// ── RENDER ───────────────────────────────────────────────────────
+function renderRows(data) {
+    container.innerHTML = ""
+    if (!data || data.length === 0) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-user-slash"></i>AUCUNE DONNEE</div>'
+        return
     }
-
-    // ── CHARGEMENT ───────────────────────────────────────────────────
-    async function loadPeople() {
-        container.innerHTML = Array(4).fill(0).map(() => `
-            <div class="skeleton-row">
-                <div class="skeleton-bar" style="width:80%"></div>
-                <div class="skeleton-bar" style="width:60%"></div>
-                <div class="skeleton-bar" style="width:60%"></div>
-                <div class="skeleton-bar" style="width:20px"></div>
-            </div>`).join('')
-
-        const { data, error } = await supabase
-            .from("users")
-            .select("identifiant, uid, prenom, nom")
-            .order("nom", { ascending: true })
-
-        if (error) {
-            container.innerHTML = `<div class="empty-state"><i class="fas fa-triangle-exclamation"></i>ERREUR : ${error.message}</div>`
-            return
-        }
-
-        // Dédupliquer par UID : si deux lignes ont le même UID,
-        // on garde celle qui a un prénom ou un nom, sinon la première.
-        const seen = new Map()
-        ;(data || []).forEach(p => {
-            const key = normalizeUid(p.uid)
-            if (!key) { seen.set(p.identifiant, p); return } // pas d'UID → on garde toujours
-            if (!seen.has(key)) {
-                seen.set(key, p)
-            } else {
-                const existing = seen.get(key)
-                const existingHasName = (existing.prenom || existing.nom)
-                const newHasName = (p.prenom || p.nom)
-                if (!existingHasName && newHasName) seen.set(key, p)
-            }
-        })
-        allPeople = Array.from(seen.values())
-
-        const totalBadges  = allPeople.filter(p => normalizeUid(p.uid) !== "").length
-        const totalPeople  = allPeople.filter(p =>
-            (p.prenom && p.prenom.trim() !== "") || (p.nom && p.nom.trim() !== "")).length
-        const badgesLibres = allPeople.filter(p =>
-            (!p.prenom || p.prenom.trim() === "") && (!p.nom || p.nom.trim() === "")).length
-
-        animateCount(document.getElementById("badge-count"),   totalBadges)
-        animateCount(document.getElementById("nobadge-count"), badgesLibres)
-        animateCount(document.getElementById("total-count"),   totalPeople)
-
-        renderRows(allPeople)
-    }
-
-    // ── RECHERCHE ────────────────────────────────────────────────────
-    searchInput.addEventListener("input", () => {
-        const q = searchInput.value.trim().toLowerCase()
-        if (!q) { renderRows(allPeople); return }
-        renderRows(allPeople.filter(p =>
-            (p.prenom || "").toLowerCase().includes(q) ||
-            (p.nom    || "").toLowerCase().includes(q) ||
-            (p.uid    || "").toLowerCase().includes(q)
-        ))
+    data.forEach(function(p, i) {
+        var row = document.createElement("div")
+        row.className = "log-row"
+        row.style.animationDelay = (i * 25) + "ms"
+        var hasUid = nuid(p.uid) !== ""
+        var uidHtml = hasUid
+            ? '<i class="fas fa-id-badge" style="font-size:.55rem;"></i>' + safe(p.uid)
+            : "&#8212; aucun badge"
+        var prenomHtml = p.prenom
+            ? safe(p.prenom)
+            : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigne</span>'
+        var nomHtml = p.nom
+            ? safe(p.nom)
+            : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigne</span>'
+        row.innerHTML =
+            '<span class="uid"><span class="uid-chip' + (hasUid ? "" : " no-uid") + '">' + uidHtml + '</span></span>' +
+            '<span class="prenom">' + prenomHtml + '</span>' +
+            '<span class="nom">' + nomHtml + '</span>' +
+            '<span style="display:flex;align-items:center;">' +
+            '<button class="btn-delete" title="Supprimer" data-id="' + p.identifiant + '">' +
+            '<i class="fas fa-xmark"></i></button></span>'
+        container.appendChild(row)
     })
 
-    // ── FORMULAIRE D'AJOUT ───────────────────────────────────────────
-    document.getElementById("add-person-form").addEventListener("submit", async (e) => {
-        e.preventDefault()
-        const uid    = normalizeUid(document.getElementById("uid-input").value)
-        const prenom = document.getElementById("prenom-input").value.trim()
-        const nom    = document.getElementById("nom-input").value.trim()
+    container.querySelectorAll(".btn-delete").forEach(function(btn) {
+        btn.addEventListener("click", async function() {
+            var id = btn.getAttribute("data-id")
+            if (!confirm("Supprimer cette entree ?")) return
+            var res = await supabase.from("users").delete().eq("identifiant", id)
+            if (res.error) showToast(res.error.message, "error")
+            else { showToast("Supprime avec succes"); loadPeople() }
+        })
+    })
+}
 
-        if (!uid) { showToast("L'UID est obligatoire", 'error'); return }
+// ── CHARGEMENT ───────────────────────────────────────────────────
+async function loadPeople() {
+    container.innerHTML = [0,0,0,0].map(function() {
+        return '<div class="skeleton-row">' +
+            '<div class="skeleton-bar" style="width:80%"></div>' +
+            '<div class="skeleton-bar" style="width:60%"></div>' +
+            '<div class="skeleton-bar" style="width:60%"></div>' +
+            '<div class="skeleton-bar" style="width:20px"></div></div>'
+    }).join("")
 
-        // Vérification rapide dans le cache local
-        const localDupe = allPeople.some(p => normalizeUid(p.uid) === uid)
-        if (localDupe) { showToast(`L'UID ${uid} existe déjà !`, 'error'); return }
+    var res = await supabase
+        .from("users")
+        .select("identifiant, uid, prenom, nom")
+        .order("nom", { ascending: true })
 
-        // Double vérification côté base de données
-        const { data: existing } = await supabase
-            .from("users").select("uid").eq("uid", uid).maybeSingle()
-        if (existing) { showToast(`L'UID ${uid} existe déjà !`, 'error'); return }
+    if (res.error) {
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-triangle-exclamation"></i>ERREUR : ' + res.error.message + '</div>'
+        return
+    }
 
-        const { error } = await supabase.from("users").insert([{
-            uid,
-            prenom: prenom || null,
-            nom:    nom    || null
-        }])
+    // Deduplication : pour un meme UID, garder la ligne avec nom/prenom
+    var seen = new Map()
+    ;(res.data || []).forEach(function(p) {
+        var key = nuid(p.uid)
+        if (!key) { seen.set(p.identifiant, p); return }
+        if (!seen.has(key)) {
+            seen.set(key, p)
+        } else {
+            var ex = seen.get(key)
+            if (!(ex.prenom || ex.nom) && (p.prenom || p.nom)) seen.set(key, p)
+        }
+    })
+    allPeople = Array.from(seen.values())
 
-        if (error) showToast(error.message, 'error')
+    var totalBadges  = allPeople.filter(function(p) { return nuid(p.uid) !== "" }).length
+    var totalPeople  = allPeople.filter(function(p) { return (p.prenom && p.prenom.trim()) || (p.nom && p.nom.trim()) }).length
+    var badgesLibres = allPeople.filter(function(p) { return !(p.prenom && p.prenom.trim()) && !(p.nom && p.nom.trim()) }).length
+
+    animateCount(document.getElementById("badge-count"),   totalBadges)
+    animateCount(document.getElementById("nobadge-count"), badgesLibres)
+    animateCount(document.getElementById("total-count"),   totalPeople)
+
+    renderRows(allPeople)
+}
+
+// ── RECHERCHE ────────────────────────────────────────────────────
+searchInput.addEventListener("input", function() {
+    var q = searchInput.value.trim().toLowerCase()
+    if (!q) { renderRows(allPeople); return }
+    renderRows(allPeople.filter(function(p) {
+        return (p.prenom || "").toLowerCase().includes(q) ||
+               (p.nom    || "").toLowerCase().includes(q) ||
+               (p.uid    || "").toLowerCase().includes(q)
+    }))
+})
+
+// ── FORMULAIRE D'AJOUT ───────────────────────────────────────────
+// Logique :
+//   - UID inconnu                    => INSERT
+//   - UID existe, sans nom/prenom    => UPDATE avec les champs fournis
+//   - UID existe, avec nom/prenom    => REFUS
+document.getElementById("add-person-form").addEventListener("submit", async function(e) {
+    e.preventDefault()
+    var uid    = nuid(document.getElementById("uid-input").value)
+    var prenom = document.getElementById("prenom-input").value.trim()
+    var nom    = document.getElementById("nom-input").value.trim()
+
+    if (!uid) { showToast("L'UID est obligatoire", "error"); return }
+
+    var check = await supabase
+        .from("users")
+        .select("identifiant, prenom, nom")
+        .eq("uid", uid)
+        .maybeSingle()
+
+    if (check.data) {
+        var ex = check.data
+        var exHasName = (ex.prenom && ex.prenom.trim()) || (ex.nom && ex.nom.trim())
+
+        if (exHasName) {
+            // UID deja attribue a quelqu'un
+            var who = [ex.prenom, ex.nom].filter(Boolean).join(" ")
+            showToast("UID deja attribue a " + who, "error")
+            return
+        }
+
+        // UID existe mais sans nom/prenom : on assigne l'identite
+        if (!prenom && !nom) {
+            showToast("L'UID existe deja (sans identite). Renseignez au moins un nom.", "error")
+            return
+        }
+
+        var upd = await supabase
+            .from("users")
+            .update({ prenom: prenom || null, nom: nom || null })
+            .eq("identifiant", ex.identifiant)
+
+        if (upd.error) showToast(upd.error.message, "error")
         else {
-            showToast('Badge enregistré')
+            showToast("Identite assignee a l'UID " + uid)
             document.getElementById("add-person-form").reset()
             loadPeople()
         }
-    })
+        return
+    }
 
-    // ── EXCEL IMPORT ─────────────────────────────────────────────────
-    const btnImport   = document.getElementById("btn-import-excel")
-    const excelUpload = document.getElementById("excel-upload")
+    // UID inconnu : insertion normale
+    var ins = await supabase.from("users").insert([{
+        uid:    uid,
+        prenom: prenom || null,
+        nom:    nom    || null
+    }])
 
-    btnImport.addEventListener("click", () => excelUpload.click())
+    if (ins.error) showToast(ins.error.message, "error")
+    else {
+        showToast("Badge enregistre")
+        document.getElementById("add-person-form").reset()
+        loadPeople()
+    }
+})
 
-    excelUpload.addEventListener("change", async (e) => {
-        const file = e.target.files[0]
-        if (!file) return
+// ── EXCEL IMPORT ─────────────────────────────────────────────────
+// Logique identique :
+//   - UID inconnu                 => INSERT
+//   - UID existe sans nom/prenom  => UPDATE
+//   - UID existe avec nom/prenom  => ignore (doublon)
+var btnImport   = document.getElementById("btn-import-excel")
+var excelUpload = document.getElementById("excel-upload")
 
-        if (!window.XLSX) {
-            await new Promise((res, rej) => {
-                const s = document.createElement('script')
-                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-                s.onload = res; s.onerror = rej
-                document.head.appendChild(s)
+btnImport.addEventListener("click", function() { excelUpload.click() })
+
+excelUpload.addEventListener("change", async function(e) {
+    var file = e.target.files[0]
+    if (!file) return
+
+    if (!window.XLSX) {
+        await new Promise(function(res, rej) {
+            var s = document.createElement("script")
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+            s.onload = res; s.onerror = rej
+            document.head.appendChild(s)
+        })
+    }
+
+    var reader = new FileReader()
+    reader.onload = async function(evt) {
+        try {
+            var wb       = window.XLSX.read(new Uint8Array(evt.target.result), { type: "array" })
+            var jsonData = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+
+            // Charger tous les enregistrements existants (uid + identifiant + nom/prenom)
+            var existRes = await supabase.from("users").select("identifiant, uid, prenom, nom")
+            var existMap = new Map()
+            ;(existRes.data || []).forEach(function(u) {
+                if (nuid(u.uid)) existMap.set(nuid(u.uid), u)
             })
-        }
 
-        const reader = new FileReader()
-        reader.onload = async (evt) => {
-            try {
-                const wb       = window.XLSX.read(new Uint8Array(evt.target.result), { type: 'array' })
-                const jsonData = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
+            var toInsert = []
+            var toUpdate = []
+            var skipped  = 0
+            var seenInFile = new Set()
 
-                // Récupère tous les UIDs existants, normalisés
-                const { data: existingUsers } = await supabase.from("users").select("uid")
-                const existingUids = new Set(
-                    (existingUsers || [])
-                        .map(u => normalizeUid(u.uid))
-                        .filter(Boolean)
-                )
+            jsonData.forEach(function(row) {
+                var rawUid = row.UID != null ? row.UID : (row.uid != null ? row.uid : null)
+                if (rawUid == null) return
+                var uid = nuid(rawUid)
+                if (!uid) return
+                if (seenInFile.has(uid)) return  // doublon dans le fichier lui-meme
+                seenInFile.add(uid)
 
-                let duplicates = 0
-                const records  = []
+                var prenom = row.Prenom || row.prenom || row["Pr\u00e9nom"] || null
+                var nom    = row.Nom    || row.nom    || null
 
-                jsonData.forEach(row => {
-                    const rawUid = row.UID ?? row.uid ?? null
-                    if (rawUid === null || rawUid === undefined) return
-                    const uid = normalizeUid(rawUid)
-                    if (!uid) return
-
-                    if (existingUids.has(uid)) { duplicates++; return }
-
-                    // Marquer immédiatement pour éviter les doublons internes au fichier Excel
-                    existingUids.add(uid)
-
-                    records.push({
-                        uid,
-                        prenom: row.Prénom || row.prenom || row.Prenom || null,
-                        nom:    row.Nom    || row.nom    || null
-                    })
-                })
-
-                if (!records.length) {
-                    showToast(
-                        duplicates
-                            ? `Tous les UIDs (${duplicates}) existent déjà`
-                            : "Aucun UID valide trouvé",
-                        'error'
-                    )
-                    return
+                if (existMap.has(uid)) {
+                    var ex = existMap.get(uid)
+                    var exHasName = (ex.prenom && ex.prenom.trim()) || (ex.nom && ex.nom.trim())
+                    if (exHasName) {
+                        skipped++  // deja attribue, on ignore
+                    } else if (prenom || nom) {
+                        // Existe sans nom => on met a jour
+                        toUpdate.push({ identifiant: ex.identifiant, prenom: prenom || null, nom: nom || null })
+                    } else {
+                        skipped++  // pas de nom a assigner non plus
+                    }
+                } else {
+                    toInsert.push({ uid: uid, prenom: prenom || null, nom: nom || null })
                 }
-
-                const { error } = await supabase.from("users").insert(records)
-                if (error) throw error
-
-                showToast(duplicates
-                    ? `${records.length} importés, ${duplicates} doublons ignorés`
-                    : `${records.length} badges importés`)
-                loadPeople()
-
-            } catch (err) {
-                showToast(err.message, "error")
-            }
-            excelUpload.value = ""
-        }
-        reader.readAsArrayBuffer(file)
-    })
-
-    // ── EXCEL EXPORT ─────────────────────────────────────────────────
-    document.getElementById("btn-excel-export").addEventListener("click", async () => {
-        if (!allPeople.length) { showToast('Aucune donnée', 'error'); return }
-        if (!window.XLSX) {
-            await new Promise((res, rej) => {
-                const s = document.createElement('script')
-                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-                s.onload = res; s.onerror = rej
-                document.head.appendChild(s)
             })
+
+            // Executer les insertions
+            if (toInsert.length) {
+                var insRes = await supabase.from("users").insert(toInsert)
+                if (insRes.error) throw insRes.error
+            }
+
+            // Executer les mises a jour une par une
+            for (var i = 0; i < toUpdate.length; i++) {
+                var u = toUpdate[i]
+                var updRes = await supabase.from("users")
+                    .update({ prenom: u.prenom, nom: u.nom })
+                    .eq("identifiant", u.identifiant)
+                if (updRes.error) throw updRes.error
+            }
+
+            var msg = ""
+            if (toInsert.length) msg += toInsert.length + " insere(s)"
+            if (toUpdate.length) msg += (msg ? ", " : "") + toUpdate.length + " mis a jour"
+            if (skipped)         msg += (msg ? ", " : "") + skipped + " ignore(s)"
+            showToast(msg || "Rien a importer")
+            loadPeople()
+
+        } catch(err) {
+            showToast(err.message, "error")
         }
-        const ws = window.XLSX.utils.json_to_sheet(allPeople.map(p => ({
-            UID:    p.uid    || '',
-            Prénom: p.prenom || '',
-            Nom:    p.nom    || ''
-        })))
-        const wb = window.XLSX.utils.book_new()
-        window.XLSX.utils.book_append_sheet(wb, ws, 'Personnes')
-        window.XLSX.writeFile(wb, `spi_personnes_${new Date().toISOString().split('T')[0]}.xlsx`)
-        showToast('Export réussi')
-    })
+        excelUpload.value = ""
+    }
+    reader.readAsArrayBuffer(file)
+})
 
-    // ── LOGOUT ───────────────────────────────────────────────────────
-    document.getElementById("btn-logout").addEventListener("click", (e) => {
-        e.preventDefault()
-        sessionStorage.clear()
-        window.location.href = "index.html"
-    })
+// ── EXCEL EXPORT ─────────────────────────────────────────────────
+document.getElementById("btn-excel-export").addEventListener("click", async function() {
+    if (!allPeople.length) { showToast("Aucune donnee", "error"); return }
+    if (!window.XLSX) {
+        await new Promise(function(res, rej) {
+            var s = document.createElement("script")
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+            s.onload = res; s.onerror = rej
+            document.head.appendChild(s)
+        })
+    }
+    var ws = window.XLSX.utils.json_to_sheet(allPeople.map(function(p) {
+        return { UID: p.uid || "", Prenom: p.prenom || "", Nom: p.nom || "" }
+    }))
+    var wb = window.XLSX.utils.book_new()
+    window.XLSX.utils.book_append_sheet(wb, ws, "Personnes")
+    window.XLSX.writeFile(wb, "spi_personnes_" + new Date().toISOString().split("T")[0] + ".xlsx")
+    showToast("Export reussi")
+})
 
-    loadPeople()
+// ── LOGOUT ───────────────────────────────────────────────────────
+document.getElementById("btn-logout").addEventListener("click", function(e) {
+    e.preventDefault()
+    sessionStorage.clear()
+    window.location.href = "index.html"
+})
+
+loadPeople()
 </script>
 </body>
 </html>

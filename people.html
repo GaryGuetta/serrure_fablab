@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personnes | SPI Team CESI</title>
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Fichiers CSS séparés -->
+
     <link rel="stylesheet" href="css/logs.css">
     <link rel="stylesheet" href="css/people.css">
 </head>
@@ -131,11 +130,19 @@
         window.location.href = "index.html"
     }
 
-    const container = document.getElementById("people-container")
+    const container  = document.getElementById("people-container")
     const searchInput = document.getElementById("search-input")
     let allPeople = []
 
-    // --- UTILS ---
+    // ── Normalise un UID pour une comparaison fiable ─────────────────
+    // Convertit en string, supprime espaces, met en minuscules.
+    // Cela règle les faux doublons causés par des types numériques/string
+    // ou des espaces invisibles venant d'Excel.
+    function normalizeUid(v) {
+        return String(v ?? "").trim().toLowerCase()
+    }
+
+    // ── UTILS ────────────────────────────────────────────────────────
     function showToast(msg, type = 'success') {
         const t = document.getElementById('toast')
         t.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg
@@ -152,7 +159,8 @@
         const interval = setInterval(() => {
             current += Math.ceil(diff / (dur / step))
             if ((diff > 0 && current >= target) || (diff < 0 && current <= target)) {
-                current = target; clearInterval(interval)
+                current = target
+                clearInterval(interval)
             }
             el.textContent = current
         }, step)
@@ -162,7 +170,7 @@
         return String(v || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     }
 
-    // --- RENDER ---
+    // ── RENDER ───────────────────────────────────────────────────────
     function renderRows(data) {
         container.innerHTML = ""
         if (!data || data.length === 0) {
@@ -173,15 +181,21 @@
             const row = document.createElement("div")
             row.className = "log-row"
             row.style.animationDelay = `${i * 25}ms`
-            const hasUid = p.uid && p.uid.trim() !== ""
+            const hasUid = normalizeUid(p.uid) !== ""
             row.innerHTML = `
                 <span class="uid">
                     <span class="uid-chip ${hasUid ? '' : 'no-uid'}">
-                        ${hasUid ? `<i class="fas fa-id-badge" style="font-size:.55rem;"></i>${safe(p.uid)}` : '— aucun badge'}
+                        ${hasUid
+                            ? `<i class="fas fa-id-badge" style="font-size:.55rem;"></i>${safe(p.uid)}`
+                            : '— aucun badge'}
                     </span>
                 </span>
-                <span class="prenom">${p.prenom ? safe(p.prenom) : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigné</span>'}</span>
-                <span class="nom">${p.nom ? safe(p.nom) : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigné</span>'}</span>
+                <span class="prenom">${p.prenom
+                    ? safe(p.prenom)
+                    : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigné</span>'}</span>
+                <span class="nom">${p.nom
+                    ? safe(p.nom)
+                    : '<span style="color:#ccc;font-style:italic;font-size:0.7rem;">Non renseigné</span>'}</span>
                 <span style="display:flex;align-items:center;">
                     <button class="btn-delete" title="Supprimer" data-id="${p.identifiant}">
                         <i class="fas fa-xmark"></i>
@@ -202,7 +216,7 @@
         })
     }
 
-    // --- CHARGEMENT ---
+    // ── CHARGEMENT ───────────────────────────────────────────────────
     async function loadPeople() {
         container.innerHTML = Array(4).fill(0).map(() => `
             <div class="skeleton-row">
@@ -222,53 +236,71 @@
             return
         }
 
-        allPeople = data || []
+        // Dédupliquer par UID : si deux lignes ont le même UID,
+        // on garde celle qui a un prénom ou un nom, sinon la première.
+        const seen = new Map()
+        ;(data || []).forEach(p => {
+            const key = normalizeUid(p.uid)
+            if (!key) { seen.set(p.identifiant, p); return } // pas d'UID → on garde toujours
+            if (!seen.has(key)) {
+                seen.set(key, p)
+            } else {
+                const existing = seen.get(key)
+                const existingHasName = (existing.prenom || existing.nom)
+                const newHasName = (p.prenom || p.nom)
+                if (!existingHasName && newHasName) seen.set(key, p)
+            }
+        })
+        allPeople = Array.from(seen.values())
 
-        // Statistiques demandées
-        const totalBadges = allPeople.filter(p => p.uid && p.uid.trim() !== "").length;
-        const totalPeople = allPeople.filter(p => (p.prenom && p.prenom.trim() !== "") || (p.nom && p.nom.trim() !== "")).length;
-        const badgesLibres = allPeople.filter(p => (!p.prenom || p.prenom.trim() === "") && (!p.nom || p.nom.trim() === "")).length;
+        const totalBadges  = allPeople.filter(p => normalizeUid(p.uid) !== "").length
+        const totalPeople  = allPeople.filter(p =>
+            (p.prenom && p.prenom.trim() !== "") || (p.nom && p.nom.trim() !== "")).length
+        const badgesLibres = allPeople.filter(p =>
+            (!p.prenom || p.prenom.trim() === "") && (!p.nom || p.nom.trim() === "")).length
 
-        animateCount(document.getElementById("badge-count"), totalBadges)
+        animateCount(document.getElementById("badge-count"),   totalBadges)
         animateCount(document.getElementById("nobadge-count"), badgesLibres)
-        animateCount(document.getElementById("total-count"), totalPeople)
+        animateCount(document.getElementById("total-count"),   totalPeople)
 
         renderRows(allPeople)
     }
 
-    // --- RECHERCHE ---
+    // ── RECHERCHE ────────────────────────────────────────────────────
     searchInput.addEventListener("input", () => {
         const q = searchInput.value.trim().toLowerCase()
         if (!q) { renderRows(allPeople); return }
         renderRows(allPeople.filter(p =>
             (p.prenom || "").toLowerCase().includes(q) ||
-            (p.nom || "").toLowerCase().includes(q) ||
-            (p.uid || "").toLowerCase().includes(q)
+            (p.nom    || "").toLowerCase().includes(q) ||
+            (p.uid    || "").toLowerCase().includes(q)
         ))
     })
 
-    // --- FORMULAIRE D'AJOUT (UID REQUIS) ---
+    // ── FORMULAIRE D'AJOUT ───────────────────────────────────────────
     document.getElementById("add-person-form").addEventListener("submit", async (e) => {
         e.preventDefault()
-        const uid = document.getElementById("uid-input").value.trim()
+        const uid    = normalizeUid(document.getElementById("uid-input").value)
         const prenom = document.getElementById("prenom-input").value.trim()
-        const nom = document.getElementById("nom-input").value.trim()
+        const nom    = document.getElementById("nom-input").value.trim()
 
-        // Vérifier si l'UID existe déjà
+        if (!uid) { showToast("L'UID est obligatoire", 'error'); return }
+
+        // Vérification rapide dans le cache local
+        const localDupe = allPeople.some(p => normalizeUid(p.uid) === uid)
+        if (localDupe) { showToast(`L'UID ${uid} existe déjà !`, 'error'); return }
+
+        // Double vérification côté base de données
         const { data: existing } = await supabase
-            .from("users").select("uid, prenom, nom").eq("uid", uid).maybeSingle()
-        
-        if (existing) {
-            showToast(`L'UID ${uid} existe déjà !`, 'error'); return
-        }
+            .from("users").select("uid").eq("uid", uid).maybeSingle()
+        if (existing) { showToast(`L'UID ${uid} existe déjà !`, 'error'); return }
 
-        const record = { 
-            uid, 
-            prenom: prenom || null, 
-            nom: nom || null 
-        }
+        const { error } = await supabase.from("users").insert([{
+            uid,
+            prenom: prenom || null,
+            nom:    nom    || null
+        }])
 
-        const { error } = await supabase.from("users").insert([record])
         if (error) showToast(error.message, 'error')
         else {
             showToast('Badge enregistré')
@@ -277,11 +309,12 @@
         }
     })
 
-    // --- EXCEL IMPORT ---
-    const btnImport = document.getElementById("btn-import-excel")
+    // ── EXCEL IMPORT ─────────────────────────────────────────────────
+    const btnImport   = document.getElementById("btn-import-excel")
     const excelUpload = document.getElementById("excel-upload")
 
     btnImport.addEventListener("click", () => excelUpload.click())
+
     excelUpload.addEventListener("change", async (e) => {
         const file = e.target.files[0]
         if (!file) return
@@ -298,38 +331,65 @@
         const reader = new FileReader()
         reader.onload = async (evt) => {
             try {
-                const wb = window.XLSX.read(new Uint8Array(evt.target.result), { type: 'array' })
+                const wb       = window.XLSX.read(new Uint8Array(evt.target.result), { type: 'array' })
                 const jsonData = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
-                
+
+                // Récupère tous les UIDs existants, normalisés
                 const { data: existingUsers } = await supabase.from("users").select("uid")
-                const existingUids = new Set((existingUsers || []).map(u => u.uid).filter(Boolean))
+                const existingUids = new Set(
+                    (existingUsers || [])
+                        .map(u => normalizeUid(u.uid))
+                        .filter(Boolean)
+                )
 
                 let duplicates = 0
-                const records = []
+                const records  = []
+
                 jsonData.forEach(row => {
-                    const rowUid = row.UID || row.uid || null
-                    if (!rowUid) return // On ignore si pas d'UID
-                    if (existingUids.has(String(rowUid))) { duplicates++; return }
-                    
+                    const rawUid = row.UID ?? row.uid ?? null
+                    if (rawUid === null || rawUid === undefined) return
+                    const uid = normalizeUid(rawUid)
+                    if (!uid) return
+
+                    if (existingUids.has(uid)) { duplicates++; return }
+
+                    // Marquer immédiatement pour éviter les doublons internes au fichier Excel
+                    existingUids.add(uid)
+
                     records.push({
-                        uid: String(rowUid),
+                        uid,
                         prenom: row.Prénom || row.prenom || row.Prenom || null,
-                        nom: row.Nom || row.nom || null
+                        nom:    row.Nom    || row.nom    || null
                     })
                 })
 
-                if (!records.length) { showToast("Aucun nouvel UID valide trouvé", "error"); return }
+                if (!records.length) {
+                    showToast(
+                        duplicates
+                            ? `Tous les UIDs (${duplicates}) existent déjà`
+                            : "Aucun UID valide trouvé",
+                        'error'
+                    )
+                    return
+                }
+
                 const { error } = await supabase.from("users").insert(records)
                 if (error) throw error
-                showToast(`${records.length} badges importés`)
+
+                showToast(duplicates
+                    ? `${records.length} importés, ${duplicates} doublons ignorés`
+                    : `${records.length} badges importés`)
                 loadPeople()
-            } catch (err) { showToast(err.message, "error") }
+
+            } catch (err) {
+                showToast(err.message, "error")
+            }
             excelUpload.value = ""
         }
         reader.readAsArrayBuffer(file)
     })
 
-    // --- EXCEL EXPORT ---
+    // ── EXCEL EXPORT ─────────────────────────────────────────────────
     document.getElementById("btn-excel-export").addEventListener("click", async () => {
         if (!allPeople.length) { showToast('Aucune donnée', 'error'); return }
         if (!window.XLSX) {
@@ -341,7 +401,9 @@
             })
         }
         const ws = window.XLSX.utils.json_to_sheet(allPeople.map(p => ({
-            UID: p.uid || '', Prénom: p.prenom || '', Nom: p.nom || ''
+            UID:    p.uid    || '',
+            Prénom: p.prenom || '',
+            Nom:    p.nom    || ''
         })))
         const wb = window.XLSX.utils.book_new()
         window.XLSX.utils.book_append_sheet(wb, ws, 'Personnes')
@@ -349,8 +411,11 @@
         showToast('Export réussi')
     })
 
+    // ── LOGOUT ───────────────────────────────────────────────────────
     document.getElementById("btn-logout").addEventListener("click", (e) => {
-        e.preventDefault(); sessionStorage.clear(); window.location.href = "index.html"
+        e.preventDefault()
+        sessionStorage.clear()
+        window.location.href = "index.html"
     })
 
     loadPeople()

@@ -74,13 +74,11 @@
                     <span></span>
                 </div>
                 <div id="logs-container">
-                    <!-- Skeletons... -->
+                    <!-- Rows injected here -->
                 </div>
             </div>
         </div>
     </div>
-
-
 
 </div>
 
@@ -99,14 +97,15 @@
     }
 
     // Elements
-    const btnLogout = document.getElementById("btn-logout");
-    const logsContainer = document.getElementById("logs-container");
+    const btnLogout     = document.getElementById("btn-logout")
+    const logsContainer = document.getElementById("logs-container")
     const btnExcelExport = document.getElementById("btn-excel")
-    const btnUidExport = document.getElementById("btn-uid-export");
+    const btnUidExport  = document.getElementById("btn-uid-export")
 
-    let allData = [];
+    let allData = []
 
-    // --- UTILS ---
+    // ─── UTILS ────────────────────────────────────────────────────────────────
+
     function showToast(msg, type = 'success') {
         const t = document.getElementById('toast')
         t.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg
@@ -130,32 +129,65 @@
         }, step)
     }
 
-    function updateStats(data) {
-        const now = new Date()
-        const todayStr = now.toISOString().split("T")[0]
-        const currentMonth = now.getMonth()
-        const currentYear = now.getFullYear()
-        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
-
-        animateCount(document.getElementById("day-count"), data.filter(u => u.date === todayStr).length)
-        animateCount(document.getElementById("week-count"), data.filter(u => u.date && new Date(u.date) >= weekAgo).length)
-        animateCount(document.getElementById("month-count"), data.filter(u => {
-            if (!u.date) return false
-            const d = new Date(u.date)
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear
-        }).length)
+    function safe(v) {
+        return (String(v || "—")).replace(/</g, "&lt;").replace(/>/g, "&gt;")
     }
 
-    // --- DATA LOADING ---
+    // ─── STATS ────────────────────────────────────────────────────────────────
+
+    function updateStats(data) {
+        const now        = new Date()
+        const todayStr   = now.toISOString().split("T")[0]
+        const weekAgo    = new Date(); weekAgo.setDate(weekAgo.getDate() - 7)
+        const curMonth   = now.getMonth()
+        const curYear    = now.getFullYear()
+
+        animateCount(document.getElementById("day-count"),
+            data.filter(u => u.date === todayStr).length)
+
+        animateCount(document.getElementById("week-count"),
+            data.filter(u => u.date && new Date(u.date) >= weekAgo).length)
+
+        animateCount(document.getElementById("month-count"),
+            data.filter(u => {
+                if (!u.date) return false
+                const d = new Date(u.date)
+                return d.getMonth() === curMonth && d.getFullYear() === curYear
+            }).length)
+    }
+
+    // ─── BUILD UID → {prenom, nom} MAP ────────────────────────────────────────
+    // We iterate from oldest to newest so the most recent named entry wins.
+
+    function buildUidMap(data) {
+        const map = {}
+        // data is sorted newest-first; iterate reversed so newest overwrites
+        ;[...data].reverse().forEach(u => {
+            if (u.uid && (u.prenom || u.nom)) {
+                map[u.uid] = {
+                    prenom: u.prenom || '',
+                    nom:    u.nom    || ''
+                }
+            }
+        })
+        return map
+    }
+
+    // ─── DATA LOADING ─────────────────────────────────────────────────────────
+
     async function loadUsers() {
         const { data, error } = await supabase
             .from("users")
             .select("*")
-            .order("date", { ascending: false })
+            .order("date",  { ascending: false })
             .order("heure", { ascending: false })
 
         if (error) {
-            logsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-triangle-exclamation"></i>ERREUR : ${error.message}</div>`
+            logsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    ERREUR : ${error.message}
+                </div>`
             return
         }
 
@@ -164,20 +196,30 @@
         logsContainer.innerHTML = ""
 
         if (!data || data.length === 0) {
-            logsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-database"></i>AUCUN ENREGISTREMENT</div>`
+            logsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-database"></i>AUCUN ENREGISTREMENT
+                </div>`
             return
         }
+
+        // Build lookup map once for all rows
+        const uidMap = buildUidMap(data)
 
         data.forEach((user, i) => {
             const row = document.createElement("div")
             row.className = "log-row"
             row.style.animationDelay = `${i * 30}ms`
-            const safe = (v) => (String(v || "—")).replace(/</g, "&lt;").replace(/>/g, "&gt;")
-            
+
+            // Resolve prenom/nom: use row value first, fallback to uidMap
+            const resolved = uidMap[user.uid] || {}
+            const prenom   = user.prenom || resolved.prenom || ''
+            const nom      = user.nom    || resolved.nom    || ''
+
             row.innerHTML = `
                 <span class="uid">${safe(user.uid)}</span>
-                <span class="prenom">${safe(user.prenom)}</span>
-                <span class="nom">${safe(user.nom)}</span>
+                <span class="prenom">${safe(prenom)}</span>
+                <span class="nom">${safe(nom)}</span>
                 <span class="date">${safe(user.date)}</span>
                 <span class="heure">${safe(user.heure)}</span>
                 <span style="display:flex;align-items:center;">
@@ -189,31 +231,37 @@
             logsContainer.appendChild(row)
         })
 
-        // Delete Logic
+        // Delete logic
         logsContainer.querySelectorAll('.btn-delete').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const identifiant = btn.getAttribute('data-id')
                 if (!confirm('Supprimer cette entrée ?')) return
-                const { error } = await supabase.from('users').delete().eq('identifiant', identifiant)
-                if (error) { showToast(error.message, 'error') } 
-                else { showToast('Entrée supprimée'); loadUsers(); }
+                const { error } = await supabase
+                    .from('users')
+                    .delete()
+                    .eq('identifiant', identifiant)
+                if (error) {
+                    showToast(error.message, 'error')
+                } else {
+                    showToast('Entrée supprimée')
+                    loadUsers()
+                }
             })
         })
     }
 
-    // --- UID ONLY EXPORT ---
+    // ─── UID-ONLY EXPORT ──────────────────────────────────────────────────────
+
     btnUidExport.addEventListener("click", async () => {
-        if (!allData.length) { showToast('Aucune donnée à exporter', 'error'); return; }
-        const uids = allData.filter(u => u.uid && u.uid.trim() !== '' && !u.prenom && !u.nom).map(u => u.uid)
-        if (!uids.length) { showToast('Aucun UID sans nom/prénom trouvé', 'error'); return; }
-        if (!window.XLSX) {
-            await new Promise((res, rej) => {
-                const s = document.createElement('script')
-                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-                s.onload = res; s.onerror = rej
-                document.head.appendChild(s)
-            })
-        }
+        if (!allData.length) { showToast('Aucune donnée à exporter', 'error'); return }
+
+        const uids = allData
+            .filter(u => u.uid && u.uid.trim() !== '' && !u.prenom && !u.nom)
+            .map(u => u.uid)
+
+        if (!uids.length) { showToast('Aucun UID sans nom/prénom trouvé', 'error'); return }
+
+        await loadXLSX()
         const ws = window.XLSX.utils.json_to_sheet(uids.map(uid => ({ UID: uid })))
         const wb = window.XLSX.utils.book_new()
         window.XLSX.utils.book_append_sheet(wb, ws, 'UIDs')
@@ -221,39 +269,54 @@
         showToast(`${uids.length} UIDs exportés`)
     })
 
-    // --- EXCEL EXPORT ---
+    // ─── FULL EXCEL EXPORT ────────────────────────────────────────────────────
+
     btnExcelExport.addEventListener("click", async () => {
-        if (!allData.length) { showToast('Aucune donnée à exporter', 'error'); return; }
-        if (!window.XLSX) {
-            await new Promise((res, rej) => {
-                const s = document.createElement('script')
-                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-                s.onload = res; s.onerror = rej
-                document.head.appendChild(s)
-            })
-        }
-        const ws = window.XLSX.utils.json_to_sheet(allData.map(u => ({
-            UID: u.uid || '',
-            Prénom: u.prenom || '',
-            Nom: u.nom || '',
-            Date: u.date || '',
-            Heure: u.heure || ''
-        })));
-        const wb = window.XLSX.utils.book_new();
-        window.XLSX.utils.book_append_sheet(wb, ws, 'Accès');
-        window.XLSX.writeFile(wb, `spi_access_${new Date().toISOString().split('T')[0]}.xlsx`);
-        showToast('Export réussi');
-    });
+        if (!allData.length) { showToast('Aucune donnée à exporter', 'error'); return }
 
-    // Logout
+        const uidMap = buildUidMap(allData)
+
+        await loadXLSX()
+        const ws = window.XLSX.utils.json_to_sheet(allData.map(u => {
+            const resolved = uidMap[u.uid] || {}
+            return {
+                UID:    u.uid    || '',
+                Prénom: u.prenom || resolved.prenom || '',
+                Nom:    u.nom    || resolved.nom    || '',
+                Date:   u.date   || '',
+                Heure:  u.heure  || ''
+            }
+        }))
+        const wb = window.XLSX.utils.book_new()
+        window.XLSX.utils.book_append_sheet(wb, ws, 'Accès')
+        window.XLSX.writeFile(wb, `spi_access_${new Date().toISOString().split('T')[0]}.xlsx`)
+        showToast('Export réussi')
+    })
+
+    // ─── XLSX LAZY LOADER ─────────────────────────────────────────────────────
+
+    function loadXLSX() {
+        if (window.XLSX) return Promise.resolve()
+        return new Promise((res, rej) => {
+            const s = document.createElement('script')
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+            s.onload = res
+            s.onerror = rej
+            document.head.appendChild(s)
+        })
+    }
+
+    // ─── LOGOUT ───────────────────────────────────────────────────────────────
+
     btnLogout.addEventListener("click", (e) => {
-        e.preventDefault();
-        sessionStorage.clear();
-        window.location.href = "index.html";
-    });
+        e.preventDefault()
+        sessionStorage.clear()
+        window.location.href = "index.html"
+    })
 
-    // Initial Load
-    loadUsers();
+    // ─── INIT ─────────────────────────────────────────────────────────────────
+
+    loadUsers()
 
 </script>
 </body>

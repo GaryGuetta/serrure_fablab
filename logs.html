@@ -179,8 +179,8 @@
         const { data, error } = await supabase
             .from("users")
             .select("*")
-            .order("date",  { ascending: false })
-            .order("heure", { ascending: false })
+            .order("date",  { ascending: false, nullsFirst: false })
+            .order("heure", { ascending: false, nullsFirst: false })
 
         if (error) {
             logsContainer.innerHTML = `

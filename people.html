@@ -184,18 +184,35 @@ function renderRows(data) {
             '<span class="prenom">' + prenomHtml + '</span>' +
             '<span class="nom">' + nomHtml + '</span>' +
             '<span style="display:flex;align-items:center;">' +
-            '<button class="btn-delete" title="Supprimer" data-id="' + p.identifiant + '">' +
+            '<button class="btn-delete" title="Supprimer" data-id="' + p.identifiant + '" data-uid="' + safe(p.uid) + '">' +
             '<i class="fas fa-xmark"></i></button></span>'
         container.appendChild(row)
     })
 
     container.querySelectorAll(".btn-delete").forEach(function(btn) {
         btn.addEventListener("click", async function() {
-            var id = btn.getAttribute("data-id")
-            if (!confirm("Supprimer cette entree ?")) return
-            var res = await supabase.from("users").delete().eq("identifiant", id)
+            var id  = btn.getAttribute("data-id")
+            var uid = btn.getAttribute("data-uid")
+
+            // Trouver la personne dans allPeople pour afficher son nom dans la confirmation
+            var person = allPeople.find(function(p) { return String(p.identifiant) === String(id) })
+            var label  = (person && (person.prenom || person.nom))
+                ? [person.prenom, person.nom].filter(Boolean).join(" ")
+                : (uid || "cette entrée")
+
+            if (!confirm("Supprimer " + label + " ainsi que TOUS ses logs ? Cette action est irréversible.")) return
+
+            var res
+            if (uid && uid.trim() !== "") {
+                // Supprimer toutes les lignes partageant ce même UID (personne + tous ses logs)
+                res = await supabase.from("users").delete().eq("uid", uid)
+            } else {
+                // Pas d'UID : supprimer uniquement cette ligne
+                res = await supabase.from("users").delete().eq("identifiant", id)
+            }
+
             if (res.error) showToast(res.error.message, "error")
-            else { showToast("Supprime avec succes"); loadPeople() }
+            else { showToast("Personne et tous ses logs supprimés"); loadPeople() }
         })
     })
 }
@@ -306,7 +323,32 @@ document.getElementById("add-person-form").addEventListener("submit", async func
         return
     }
 
-    // UID inconnu : insertion normale
+    // UID inconnu dans maybeSingle() mais peut avoir des lignes sans nom (passages scannés)
+    // => UPDATE sur toutes les lignes de cet UID qui n'ont pas encore de nom/prénom
+    var updAll = await supabase
+        .from("users")
+        .update({ prenom: prenom || null, nom: nom || null })
+        .eq("uid", uid)
+        .is("prenom", null)
+        .is("nom", null)
+
+    if (updAll.error) { showToast(updAll.error.message, "error"); return }
+
+    // Vérifier si cet UID existe déjà dans la table
+    var checkExist = await supabase
+        .from("users")
+        .select("identifiant", { count: "exact", head: true })
+        .eq("uid", uid)
+
+    if ((checkExist.count || 0) > 0) {
+        // Des lignes existaient (passages sans nom) : identité assignée
+        showToast("Identite assignee aux passages existants de l\'UID " + uid)
+        document.getElementById("add-person-form").reset()
+        loadPeople()
+        return
+    }
+
+    // Vraiment aucune ligne avec cet UID : on insère un enregistrement vide (badge pré-enregistré)
     var ins = await supabase.from("users").insert([{
         uid:    uid,
         prenom: prenom || null,

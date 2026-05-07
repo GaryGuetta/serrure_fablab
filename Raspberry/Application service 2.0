@@ -1,0 +1,297 @@
+#!/usr/bin/env python3
+# ============================================================
+#  Contrôle d'accès RFID — RC522 + Supabase + Relais + Bouton
+#  v2 : requêtes HTTP asynchrones → badgeage quasi-instantané
+# ============================================================
+
+import spidev
+import RPi.GPIO as GPIO
+import requests
+import time
+import signal
+import sys
+import threading
+
+# ============================================================
+#  CONFIG BROCHES
+# ============================================================
+RST_PIN    = 25   # GPIO25 = pin physique 22 (RC522 RST)
+RELAY_PIN  = 17   # GPIO17 = pin physique 11 (Relais / gâche)
+BUTTON_PIN = 27   # GPIO27 = pin physique 13 (Bouton sortie via relais)
+
+# ============================================================
+#  CONFIG SUPABASE
+# ============================================================
+SUPABASE_URL = "https://fjksprfocmyqebjfxftf.supabase.co/rest/v1/users"
+API_KEY      = "sb_publishable_A3J91eJqawcbb2s6a-8vRQ_9bOFqaE_"
+HEADERS = {
+    "apikey":        API_KEY,
+    "Authorization": f"Bearer {API_KEY}",
+    "Content-Type":  "application/json",
+}
+
+DOOR_OPEN_SECONDS = 3
+
+# ============================================================
+#  SESSION HTTP PERSISTANTE (connexion réutilisée = + rapide)
+# ============================================================
+session = requests.Session()
+session.headers.update(HEADERS)
+
+# ============================================================
+#  REGISTRES ET COMMANDES RC522
+# ============================================================
+REG_COMMAND     = 0x01
+REG_COM_IRQ     = 0x04
+REG_ERROR       = 0x06
+REG_FIFO_DATA   = 0x09
+REG_FIFO_LEVEL  = 0x0A
+REG_BIT_FRAMING = 0x0D
+REG_MODE        = 0x11
+REG_TX_CONTROL  = 0x14
+REG_TX_ASK      = 0x15
+REG_VERSION     = 0x37
+
+CMD_IDLE        = 0x00
+CMD_TRANSCEIVE  = 0x0C
+CMD_SOFTRESET   = 0x0F
+
+PICC_REQA       = 0x26
+PICC_ANTICOLL   = 0x93
+
+# ============================================================
+#  SPI BAS NIVEAU
+# ============================================================
+def read_reg(reg):
+    return spi.xfer2([((reg << 1) & 0x7E) | 0x80, 0x00])[1]
+
+def write_reg(reg, val):
+    spi.xfer2([(reg << 1) & 0x7E, val])
+
+def set_bit(reg, mask):
+    write_reg(reg, read_reg(reg) | mask)
+
+def clear_bit(reg, mask):
+    write_reg(reg, read_reg(reg) & (~mask))
+
+# ============================================================
+#  INIT RC522
+# ============================================================
+def rc522_init():
+    GPIO.output(RST_PIN, GPIO.HIGH)
+    write_reg(REG_COMMAND,  CMD_SOFTRESET)
+    time.sleep(0.05)
+    write_reg(REG_MODE,     0x3D)
+    write_reg(REG_TX_ASK,   0x40)
+    set_bit(REG_TX_CONTROL, 0x03)
+
+def antenna_on():
+    if not (read_reg(REG_TX_CONTROL) & 0x03):
+        set_bit(REG_TX_CONTROL, 0x03)
+
+# ============================================================
+#  COMMUNICATION RC522
+# ============================================================
+def communicate(cmd, send_data):
+    write_reg(REG_COMMAND,   CMD_IDLE)
+    write_reg(REG_COM_IRQ,   0x7F)
+    set_bit(REG_FIFO_LEVEL,  0x80)
+
+    for byte in send_data:
+        write_reg(REG_FIFO_DATA, byte)
+
+    write_reg(REG_COMMAND, cmd)
+
+    if cmd == CMD_TRANSCEIVE:
+        set_bit(REG_BIT_FRAMING, 0x80)
+
+    i = 2500
+    while True:
+        irq = read_reg(REG_COM_IRQ)
+        i -= 1
+        if i == 0:
+            return None, "TIMEOUT"
+        if irq & 0x01:
+            return None, "TIMEOUT"
+        if irq & 0x30:
+            break
+
+    clear_bit(REG_BIT_FRAMING, 0x80)
+
+    if read_reg(REG_ERROR) & 0x1B:
+        return None, "ERREUR"
+
+    fifo_len = read_reg(REG_FIFO_LEVEL)
+    return [read_reg(REG_FIFO_DATA) for _ in range(fifo_len)], "OK"
+
+# ============================================================
+#  DETECTION ET LECTURE UID
+# ============================================================
+def request_card():
+    write_reg(REG_BIT_FRAMING, 0x07)
+    data, status = communicate(CMD_TRANSCEIVE, [PICC_REQA])
+    return status == "OK" and bool(data)
+
+def get_uid():
+    write_reg(REG_BIT_FRAMING, 0x00)
+    data, status = communicate(CMD_TRANSCEIVE, [PICC_ANTICOLL, 0x20])
+    if status == "OK" and data and len(data) >= 5:
+        uid = data[:4]
+        if (uid[0] ^ uid[1] ^ uid[2] ^ uid[3]) == data[4]:
+            return uid
+    return None
+
+def uid_to_int(uid):
+    return (uid[0] << 24) | (uid[1] << 16) | (uid[2] << 8) | uid[3]
+
+# ============================================================
+#  SUPABASE — VÉRIFICATION ACCÈS
+#  Accès autorisé uniquement si l'UID existe ET a un nom renseigné
+# ============================================================
+def check_access(uid_int):
+    try:
+        response = session.get(
+            f"{SUPABASE_URL}?uid=eq.{uid_int}&select=uid,nom,prenom",
+            timeout=4
+        )
+        if response.status_code == 200:
+            data = response.json()
+            if len(data) > 0:
+                user = data[0]
+                nom    = user.get("nom", "")
+                prenom = user.get("prenom", "")
+                if nom and nom.strip():
+                    print(f"  👤 Identifié : {prenom} {nom}")
+                    return True
+                else:
+                    print(f"  ⚠️  UID connu mais non assigné à une personne")
+                    return False
+    except Exception as e:
+        print(f"  ⚠️  Erreur réseau (lecture) : {e}")
+    return False
+
+# ============================================================
+#  SUPABASE — ENREGISTREMENT UID + DATE + HEURE
+#  Lancé dans un thread séparé : ne bloque plus la porte
+# ============================================================
+def log_access(uid_int):
+    def _log():
+        try:
+            payload = {
+                "uid":   uid_int,
+                "date":  time.strftime("%Y-%m-%d"),
+                "heure": time.strftime("%H:%M:%S")
+            }
+            response = session.post(
+                SUPABASE_URL,
+                json=payload,
+                timeout=5
+            )
+            if response.status_code in (200, 201):
+                print(f"  📤 Passage enregistré sur le serveur")
+            else:
+                print(f"  ⚠️  Erreur log HTTP {response.status_code} : {response.text}")
+        except Exception as e:
+            print(f"  ⚠️  Erreur réseau (écriture) : {e}")
+
+    t = threading.Thread(target=_log, daemon=True)
+    t.start()
+
+# ============================================================
+#  OUVERTURE PORTE
+# ============================================================
+def open_door(reason=""):
+    print(f"  🔓 ACCÈS AUTORISÉ{' — ' + reason if reason else ''}")
+    GPIO.output(RELAY_PIN, GPIO.HIGH)
+    time.sleep(DOOR_OPEN_SECONDS)
+    GPIO.output(RELAY_PIN, GPIO.LOW)
+    print("  🔒 Porte refermée")
+
+# ============================================================
+#  NETTOYAGE
+# ============================================================
+def cleanup(sig=None, frame=None):
+    print("\n\n⛔ Arrêt du programme.")
+    spi.close()
+    GPIO.cleanup()
+    print("GPIO nettoyé. À bientôt !")
+    sys.exit(0)
+
+# ============================================================
+#  INITIALISATION GÉNÉRALE
+# ============================================================
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+
+GPIO.setup(RELAY_PIN,  GPIO.OUT)
+GPIO.output(RELAY_PIN, GPIO.LOW)
+
+# ← MODIF : pull-down au lieu de pull-up
+# Au repos : relais ouvert → GPIO27 dans le vide → tiré à GND → LOW stable
+# Bouton appuyé : relais fermé → 3V3 arrive sur GPIO27 → HIGH détecté
+GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+GPIO.setup(RST_PIN, GPIO.OUT)
+
+spi = spidev.SpiDev()
+spi.open(0, 0)
+spi.max_speed_hz = 1000000
+spi.mode = 0
+
+rc522_init()
+antenna_on()
+
+signal.signal(signal.SIGINT,  cleanup)
+signal.signal(signal.SIGTERM, cleanup)
+
+print("=" * 50)
+print("  🔐 Contrôle d'accès RFID — Prêt")
+print(f"  RC522 version  : 0x{read_reg(REG_VERSION):02X}")
+print(f"  Relais         → GPIO {RELAY_PIN}")
+print(f"  Bouton sortie  → GPIO {BUTTON_PIN} (pull-down, relais → 3V3)")
+print(f"  Durée ouverture: {DOOR_OPEN_SECONDS}s")
+print("=" * 50)
+print("En attente d'une carte ou du bouton...\n")
+
+# ============================================================
+#  BOUCLE PRINCIPALE
+# ============================================================
+last_uid          = None
+button_last_state = GPIO.LOW  # ← MODIF : état repos = LOW
+
+while True:
+
+    # --- Bouton de sortie (polling) ---
+    # GPIO27 en pull-down. Au repos = LOW (relais ouvert).
+    # Relais activé → 3V3 sur GPIO27 → HIGH → ouvre la porte.
+    button_state = GPIO.input(BUTTON_PIN)
+    if button_state == GPIO.HIGH and button_last_state == GPIO.LOW:  # ← MODIF
+        print("\n🔘 Bouton sortie appuyé")
+        open_door("bouton sortie")
+        time.sleep(0.3)
+    button_last_state = button_state
+
+    # --- Lecture carte RFID ---
+    if request_card():
+        uid = get_uid()
+        if uid:
+            uid_int = uid_to_int(uid)
+            uid_hex = ':'.join([f'{b:02X}' for b in uid])
+
+            if uid_int != last_uid:
+                print(f"\n📡 Carte détectée — UID : {uid_int} ({uid_hex})")
+                print("   Vérification en cours...")
+
+                authorized = check_access(uid_int)
+                log_access(uid_int)   # non-bloquant (thread)
+
+                if authorized:
+                    open_door("carte autorisée")
+                else:
+                    print(f"  ❌ ACCÈS REFUSÉ — UID inconnu : {uid_int}")
+
+                last_uid = uid_int
+    else:
+        last_uid = None
+
+    time.sleep(0.1)

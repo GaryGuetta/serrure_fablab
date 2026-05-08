@@ -243,7 +243,10 @@ async function loadPeople() {
             seen.set(key, p)
         } else {
             var ex = seen.get(key)
-            if (!(ex.prenom || ex.nom) && (p.prenom || p.nom)) seen.set(key, p)
+            // ← MODIF : écrase si la nouvelle ligne a un nom/prenom
+            if ((p.prenom && p.prenom.trim()) || (p.nom && p.nom.trim())) {
+                seen.set(key, p)
+            }
         }
     })
     allPeople = Array.from(seen.values())

@@ -7,18 +7,20 @@ Il comprend également le développement de la partie logicielle du microcontrô
 
 - 🔐 **Page de Connexion :** Interface moderne et responsive pour l'authentification des membres.
 - 📊 **Dashboard d'Informations :** Affichage en temps réel du nombre d'ouverture de la porte du Fablab.
-- 📟 **Raspberry :** Code utilisé pour le système, sans et avec l'tuilisation du serveur en ligne
+- 📟 **Raspberry :** Code utilisé pour le système, sans et avec l'utilisation du serveur en ligne
 - 📜 **Journal des Logs :** Historique chronologique des badgeages.
 
 ## 📂 Structure du projet
 
 ```text
-├── index.html          # Page de connexion (Login)
-├── logs.html           # Page d'affichage des logs
-├── people.html         # Page gérant l'accés au fablab
+├── index.html                    # Page de connexion (Login)
+├── logs.html                     # Page d'affichage des logs
+├── people.html                   # Page gérant l'accés au fablab
 ├── Raspberry/
-│   ├── RC522.py        # Programmation du module RC522 (Local)
-│   └── VF.py           # Programmation complète (Serveur)
+    ├──old/                       # Premières versions
+│   |   ├── RC522.py              # Programmation du module RC522 (Local)
+│   |   └── VF.py                 # Programmation complète (Serveur)
+|   ├── Application service X.X   # Versions finales, se lançant au démarage du système. X.X = version du système
 ├── css/
 │   ├── style.css       # Styles généraux
 │   ├── logs.css        # Styles pour le tableau des logs
